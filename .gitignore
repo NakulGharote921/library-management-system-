@@ -1,0 +1,23 @@
+.github/modernize/java-upgrade
+.vscode
+.docs
+# Maven
+target/
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Environment
+.env
+
+# Application secrets
+application-cloud.properties
+target/
+*.class
+.env
+.idea/
+.vscode/

@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-sm;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-600 to-primary-800 bg-clip-text text-transparent;
+  }
+  .mask-star-2 {
+    mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3e%3cpath d='M512 193c0-11-9-20-20-20h-149l-46-144c-4-11-14-17-21-17s-17 6-21 17l-46 144H20c-11 0-20 9-20 20 0 9 6 17 15 20l120 88-46 144c-4 11-1 23 8 29 6 4 13 5 20 2l121-88 121 88c7 3 14 2 20-2 9-6 12-18 8-29l-46-144 120-88c9-3 15-11 15-20z'/%3e%3c/svg%3e");
+    -webkit-mask-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3e%3cpath d='M512 193c0-11-9-20-20-20h-149l-46-144c-4-11-14-17-21-17s-17 6-21 17l-46 144H20c-11 0-20 9-20 20 0 9 6 17 15 20l120 88-46 144c-4 11-1 23 8 29 6 4 13 5 20 2l121-88 121 88c7 3 14 2 20-2 9-6 12-18 8-29l-46-144 120-88c9-3 15-11 15-20z'/%3e%3c/svg%3e");
+    mask-repeat: no-repeat;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .skeleton {
+    background-color: #e2e8f0;
+    background-image: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.55) 50%, transparent 60%);
+    background-size: 200% 100%;
+    background-position: 200% 0;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+  .dark .skeleton {
+    background-color: #334155;
+    background-image: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.08) 50%, transparent 60%);
+  }
+  .swap {
+    position: relative;
+    display: inline-grid;
+    place-content: center;
+    vertical-align: middle;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .swap > input {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    z-index: 1;
+    cursor: pointer;
+  }
+  .swap > input,
+  .swap-on,
+  .swap-off {
+    grid-column-start: 1;
+    grid-row-start: 1;
+  }
+  .swap-off,
+  .swap > input:checked ~ .swap-on {
+    opacity: 1;
+    visibility: visible;
+  }
+  .swap-on,
+  .swap > input:checked ~ .swap-off {
+    opacity: 0;
+    visibility: hidden;
+  }
+  .swap-rotate .swap-on,
+  .swap-rotate .swap-off {
+    transition: transform 0.5s ease;
+  }
+  .swap-rotate > input:checked ~ .swap-on {
+    transform: rotate(360deg);
+  }
+  .swap-rotate > input:checked ~ .swap-off {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@property --aura-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes aura-spin {
+  to {
+    --aura-angle: 360deg;
+  }
+}
+
+.aura {
+  --aura-angle: 0deg;
+  position: relative;
+  border-radius: 1rem;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--aura-angle),
+    #f59e0b,
+    #ef4444,
+    #a855f7,
+    #3b82f6,
+    #10b981,
+    #f59e0b
+  );
+  animation: aura-spin 6s linear infinite;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.25);
+}
+
+.dark .aura {
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.4);
+}
+
+/* Custom scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark body {
+  @apply bg-gray-950 text-gray-100;
+}
+
+.dark .glass {
+  @apply bg-gray-900/70 border-gray-800/80;
+}

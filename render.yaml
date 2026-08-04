@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: library-frontend
+    env: static
+    rootDir: library-frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: VITE_API_BASE_URL
+        value: https://library-management.onrender.com/api
+
+  - type: web
+    name: library-management
+    env: java
+    rootDir: library-management
+    buildCommand: mvn -DskipTests package
+    startCommand: java -jar target/library-management-1.0.0.jar --server.port=$PORT
+    envVars:
+      - key: JAVA_VERSION
+        value: 17
+      - key: SPRING_PROFILES_ACTIVE
+        value: cloud
