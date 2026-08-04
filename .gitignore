@@ -14,8 +14,7 @@ target/
 # Environment
 .env
 
-# Application secrets
-application-cloud.properties
+# Build output
 target/
 *.class
 .env
