@@ -88,8 +88,7 @@ public class SecurityConfig {
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository(
             @Value("${GOOGLE_CLIENT_ID:}") String googleClientId,
-            @Value("${GOOGLE_CLIENT_SECRET:}") String googleClientSecret,
-            @Value("${APP_BASE_URL:http://localhost:8081}") String baseUrl) {
+            @Value("${GOOGLE_CLIENT_SECRET:}") String googleClientSecret) {
         if (googleClientId == null || googleClientId.isBlank()) {
             return registrationId -> null;
         }
@@ -98,7 +97,7 @@ public class SecurityConfig {
                 .clientSecret(googleClientSecret)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
-                .redirectUri(baseUrl + "/login/oauth2/code/google")
+                .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
                 .scope("openid", "email", "profile")
                 .authorizationUri("https://accounts.google.com/o/oauth2/v2/auth")
                 .tokenUri("https://www.googleapis.com/oauth2/v4/token")
