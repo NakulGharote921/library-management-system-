@@ -3,7 +3,7 @@ import api from './api.js'
 function backendOrigin() {
   const env = import.meta.env.VITE_API_BASE_URL?.trim()
   if (env && !env.startsWith('/')) return env.replace(/\/api\/?$/, '').replace(/\/$/, '')
-  return 'https://library-management-system-1-fj8q.onrender.com'
+  return 'https://library-management-system-2-8ydp.onrender.com'
 }
 
 export const authService = {
