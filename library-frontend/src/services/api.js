@@ -3,7 +3,7 @@ import axios from 'axios'
 function apiBaseUrl() {
   const env = import.meta.env.VITE_API_BASE_URL?.trim()
   if (env) return env.replace(/\/$/, '')
-  return '/api'
+  return 'https://library-management-system-1-fj8q.onrender.com'
 }
 
 export const API_BASE_URL = apiBaseUrl()
