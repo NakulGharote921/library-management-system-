@@ -15,7 +15,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         Path dir = UploadPaths.coversDir();
         registry.addResourceHandler("/api/uploads/covers/**")
-                .addResourceLocations(dir.toUri().toString())
+                .addResourceLocations(dir.toUri().toString(), "classpath:/static/uploads/covers/")
                 .setCacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic());
     }
 }
