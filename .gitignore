@@ -16,3 +16,6 @@ target/
 # Runtime uploads & build artifacts
 library-Backend/uploads/
 library-Backend/META-INF/
+
+# Local backend start script
+library-Backend/start-backend.ps1

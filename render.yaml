@@ -1,13 +1,20 @@
 services:
   - type: web
-    name: library-management
-    env: java
+    name: library-management-backend
+    runtime: docker
+    plan: free
     rootDir: library-Backend
-    healthCheckPath: /actuator/health
-    buildCommand: chmod +x mvnw && ./mvnw clean package -DskipTests
-    startCommand: java -jar target/library-management-1.0.0.jar
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
     envVars:
-      - key: JAVA_VERSION
-        value: 17
-      - key: SPRING_PROFILES_ACTIVE
-        value: cloud
+      # Add these in the Render dashboard (secrets must not live in this file):
+      #   SPRING_DATASOURCE_URL      e.g. jdbc:mysql://<host>:<port>/railway?zeroDateTimeBehavior=CONVERT_TO_NULL&serverTimezone=UTC&useSSL=false
+      #   SPRING_DATASOURCE_USERNAME
+      #   SPRING_DATASOURCE_PASSWORD
+      #   JWT_SECRET                 min 32 characters
+      #   JWT_EXPIRATION             optional, default 86400000 (24h)
+      #   FRONTEND_URL               e.g. https://your-app.vercel.app
+      #   RAZORPAY_KEY_ID            optional unless payments are used
+      #   RAZORPAY_KEY_SECRET        optional unless payments are used
+      #   GOOGLE_CLIENT_ID           optional (disables Google OAuth when unset)
+      #   GOOGLE_CLIENT_SECRET       optional

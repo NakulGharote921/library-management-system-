@@ -18,6 +18,10 @@ public class JwtTokenProvider {
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.expiration-ms}") long expirationMs) {
+        if (secret == null || secret.trim().length() < 32) {
+            throw new IllegalStateException(
+                    "JWT_SECRET is not configured. Set the JWT_SECRET environment variable to a value of at least 32 characters.");
+        }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMs;
     }

@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+start-backend.ps1
+target
+uploads
+*.log
+.idea
+.vscode
+.mvn
+mvnw
+mvnw.cmd
