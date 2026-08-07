@@ -7,7 +7,10 @@ import com.library.entity.User;
 import com.library.entity.UserSubscription;
 import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
+import com.library.config.UploadPaths;
+import com.library.entity.Category;
 import com.library.repository.BookRepository;
+import com.library.repository.CategoryRepository;
 import com.library.repository.IssuedBookRepository;
 import com.library.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,9 +18,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +35,7 @@ public class BookService {
     private final BookRepository bookRepository;
     private final IssuedBookRepository issuedBookRepository;
     private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
     private final SubscriptionService subscriptionService;
     private final WishlistService wishlistService;
     private final ReservationService reservationService;
@@ -189,6 +198,53 @@ public class BookService {
         bookRepository.saveAll(books);
         log.info("Removed category '{}' from {} books", categoryName, books.size());
         return books.size();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Book> findByCategoryId(Long categoryId) {
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", categoryId));
+        return bookRepository.findByCategory(category.getName());
+    }
+
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+    @Transactional
+    public Book uploadCover(Long id, MultipartFile file) {
+        Book book = getBookById(id);
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("Please choose a cover image file to upload.");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new BusinessException("Cover image must be 5MB or smaller.");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BusinessException("Only image files are allowed (JPEG, PNG, etc).");
+        }
+        try {
+            Path dir = UploadPaths.coversDir();
+            Files.createDirectories(dir);
+            String extension = StringUtils.getFilenameExtension(file.getOriginalFilename());
+            if (extension == null) {
+                extension = switch (contentType) {
+                    case "image/png" -> "png";
+                    case "image/webp" -> "webp";
+                    case "image/gif" -> "gif";
+                    default -> "jpg";
+                };
+            }
+            String filename = "book-" + id + "-" + UUID.randomUUID() + "." + extension.toLowerCase();
+            Path target = dir.resolve(filename);
+            file.transferTo(target);
+            book.setCoverImageUrl("/api/uploads/covers/" + filename);
+            bookRepository.save(book);
+            log.info("Uploaded cover for book {} -> {}", id, filename);
+            return book;
+        } catch (IOException e) {
+            log.error("Failed to store cover for book {}", id, e);
+            throw new BusinessException("Failed to store cover image: " + e.getMessage());
+        }
     }
 
     private void validateCopies(Book book) {

@@ -84,25 +84,7 @@ public class AnalyticsService {
                 .filter(a -> a != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<IssuedBook> allIssued = issuedBookRepository.findAllByOrderByIssueDateDesc();
-        Map<Long, Long> bookCounts = allIssued.stream()
-                .filter(ib -> ib.getBook() != null)
-                .collect(Collectors.groupingBy(ib -> ib.getBook().getId(), Collectors.counting()));
-        List<AnalyticsDto.MostBorrowedDto> mostBorrowed = bookCounts.entrySet().stream()
-                .sorted(Map.Entry.<Long, Long>comparingByValue().reversed())
-                .limit(5)
-                .map(entry -> {
-                    var book = bookRepository.findById(entry.getKey()).orElse(null);
-                    if (book == null) return null;
-                    return AnalyticsDto.MostBorrowedDto.builder()
-                            .title(book.getTitle())
-                            .author(book.getAuthor())
-                            .borrowed(entry.getValue())
-                            .available(book.getAvailableCopies() == null ? 0 : book.getAvailableCopies())
-                            .build();
-                })
-                .filter(dto -> dto != null)
-                .collect(Collectors.toList());
+        List<AnalyticsDto.MostBorrowedDto> mostBorrowed = buildMostBorrowed();
 
         return AnalyticsDto.builder()
                 .totalBooks(totalBooks)
@@ -119,6 +101,28 @@ public class AnalyticsService {
                 .totalRevenue(totalRevenue)
                 .mostBorrowed(mostBorrowed)
                 .build();
+    }
+
+    private List<AnalyticsDto.MostBorrowedDto> buildMostBorrowed() {
+        List<IssuedBook> allIssued = issuedBookRepository.findAllByOrderByIssueDateDesc();
+        Map<Long, Long> bookCounts = allIssued.stream()
+                .filter(ib -> ib.getBook() != null)
+                .collect(Collectors.groupingBy(ib -> ib.getBook().getId(), Collectors.counting()));
+        return bookCounts.entrySet().stream()
+                .sorted(Map.Entry.<Long, Long>comparingByValue().reversed())
+                .limit(5)
+                .map(entry -> {
+                    var book = bookRepository.findById(entry.getKey()).orElse(null);
+                    if (book == null) return null;
+                    return AnalyticsDto.MostBorrowedDto.builder()
+                            .title(book.getTitle())
+                            .author(book.getAuthor())
+                            .borrowed(entry.getValue())
+                            .available(book.getAvailableCopies() == null ? 0 : book.getAvailableCopies())
+                            .build();
+                })
+                .filter(dto -> dto != null)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -165,6 +169,8 @@ public class AnalyticsService {
                 .filter(a -> a != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        List<AnalyticsDto.MostBorrowedDto> mostBorrowed = buildMostBorrowed();
+
         return AdminDashboardDto.builder()
                 .totalBooks(totalBooks)
                 .totalMembers(totalMembers)
@@ -179,6 +185,7 @@ public class AnalyticsService {
                 .overdueRate(overdueRate)
                 .monthlyRevenue(monthlyRevenue)
                 .totalRevenue(totalRevenue)
+                .mostBorrowed(mostBorrowed)
                 .build();
     }
 

@@ -1,16 +1,45 @@
-# React + Vite
+# Lumina Library — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React SPA for the Lumina Library Management System. Built with React 19, Vite, Redux Toolkit, Tailwind CSS, and Axios.
 
-Currently, two official plugins are available:
+## Getting Started
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+The app runs at `http://localhost:3000` and expects the backend API at `http://localhost:8081/api` (set `VITE_API_BASE_URL` in a `.env` file to override).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Scripts
 
-## Expanding the ESLint configuration
+| Script | Description |
+|---|---|
+| `npm run dev` | Start Vite dev server with HMR |
+| `npm run build` | Production build + SPA redirect file for Netlify |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | ESLint check |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Structure
+
+```
+src/
+├── components/     # Reusable UI (Modal, Button, FormInput, DataTable, skeletons...)
+├── constants/      # Branding & app constants
+├── layout/         # AppLayout, Navbar, Sidebar
+├── pages/          # 25 routed page components
+├── services/       # Axios API clients (auth, books, categories, subscriptions...)
+└── store/          # Redux slices (auth, ui) + CategoryProvider context
+```
+
+## Highlights
+
+- **Portal-based modals** — rendered into `document.body` via `ReactDOM.createPortal`, viewport-centered, focus-trapped, with body scroll-locking
+- **Cached category store** — global context fetches categories once, refetches on mutations, powers every dropdown/filter
+- **Role-aware UI** — `ProtectedRoute` + `RoleGuard` gate routes and conditionally render navigation based on the Redux auth state
+- **Dark mode** — Tailwind `dark` class persisted to localStorage
+- **Responsive** — mobile-first, collapsible sidebar, adaptive grids
+
+## Related
+
+Full setup instructions, API reference, and deployment guide live in the [root README](../README.md).

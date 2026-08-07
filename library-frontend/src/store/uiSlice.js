@@ -1,8 +1,10 @@
 import { createSlice } from '@reduxjs/toolkit'
+import { getInitialTheme } from '../utils/theme.js'
 
 const initialState = {
   sidebarOpen: false,
-  theme: localStorage.getItem('theme') || 'light',
+  sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
+  theme: getInitialTheme(),
 }
 
 const uiSlice = createSlice({
@@ -15,6 +17,10 @@ const uiSlice = createSlice({
     setSidebarOpen(state, action) {
       state.sidebarOpen = action.payload
     },
+    setSidebarCollapsed(state, action) {
+      state.sidebarCollapsed = action.payload
+      localStorage.setItem('sidebarCollapsed', String(action.payload))
+    },
     setTheme(state, action) {
       state.theme = action.payload
       localStorage.setItem('theme', action.payload)
@@ -22,7 +28,7 @@ const uiSlice = createSlice({
   },
 })
 
-export const { toggleSidebar, setSidebarOpen, setTheme } = uiSlice.actions
+export const { toggleSidebar, setSidebarOpen, setSidebarCollapsed, setTheme } = uiSlice.actions
 export const selectUi = (state) => state.ui
 
 export default uiSlice.reducer

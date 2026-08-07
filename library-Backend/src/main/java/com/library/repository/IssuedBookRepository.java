@@ -22,6 +22,8 @@ public interface IssuedBookRepository extends JpaRepository<IssuedBook, Long> {
 
     List<IssuedBook> findByStatus(String status);
 
+    long countByStatus(String status);
+
     List<IssuedBook> findByUser(User user);
 
     List<IssuedBook> findByBook(Book book);

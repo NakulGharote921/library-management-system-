@@ -9,6 +9,7 @@ const FormInput = forwardRef(function FormInput(
     className = '',
     inputClassName = '',
     type = 'text',
+    required = false,
     ...rest
   },
   ref,
@@ -31,7 +32,9 @@ const FormInput = forwardRef(function FormInput(
           Icon ? 'pl-10' : ''
         } ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'border-gray-200'}`}
         aria-invalid={!!error}
+        aria-required={required || undefined}
         aria-describedby={error ? `${inputId}-error` : undefined}
+        required={required || undefined}
         {...rest}
       />
       <label
@@ -41,6 +44,7 @@ const FormInput = forwardRef(function FormInput(
         }`}
       >
         {label}
+        {required ? <span className="ms-0.5 text-red-500">*</span> : null}
       </label>
       {error ? (
         <p id={`${inputId}-error`} className="mt-1 text-xs text-red-600" role="alert">

@@ -172,14 +172,20 @@ export default function MembershipPlans() {
           {plans.map((plan) => {
             const isCurrentPlan = activeSub?.plan?.id === plan.id
             const isFree = plan.price === 0
-            const isPopular = plan.name === 'Gold' && !isCurrentPlan
-            const features = [
-              { text: `Up to ${plan.maxBooks} books at a time`, included: true },
-              { text: `${plan.maxLoanDays}-day loan period`, included: true },
-              { text: plan.maxRenewals > 0 ? `Up to ${plan.maxRenewals} renewals` : 'Renewals', included: plan.maxRenewals > 0 },
-              { text: 'Priority reservations', included: plan.priorityReservation },
-              { text: 'Fine exempt', included: plan.fineExempt },
-            ]
+            const isPopular = Boolean(plan.featured) && !isCurrentPlan
+            const customFeatures = typeof plan.features === 'string'
+              ? plan.features.split(/\r?\n/).map((f) => f.trim()).filter(Boolean)
+              : Array.isArray(plan.features) ? plan.features : []
+            const features = customFeatures.length
+              ? customFeatures.map((text) => ({ text, included: true }))
+              : [
+                  { text: `Up to ${plan.maxBooks} books at a time`, included: true },
+                  { text: `${plan.maxLoanDays}-day loan period`, included: true },
+                  { text: plan.maxRenewals > 0 ? `Up to ${plan.maxRenewals} renewals` : 'Renewals', included: plan.maxRenewals > 0 },
+                  { text: `Up to ${plan.maxReservations ?? 0} reservations`, included: (plan.maxReservations ?? 0) > 0 },
+                  { text: 'Priority reservations', included: plan.priorityReservation },
+                  { text: 'Fine exempt', included: plan.fineExempt },
+                ]
 
             return (
               <div key={plan.id} className="relative h-full">
@@ -208,7 +214,10 @@ export default function MembershipPlans() {
                   </div>
 
                   <div className="mt-3 flex items-baseline justify-between gap-2">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50">{plan.name}</h2>
+                    <h2 className="flex items-center text-2xl font-bold text-gray-900 dark:text-gray-50">
+                      {plan.name}
+                      {plan.name === 'Student' && <i className="fi fi-rs-badge ml-2 text-amber-500" aria-hidden="true" />}
+                    </h2>
                     <span className="text-xl font-semibold text-gray-900 dark:text-white">₹{plan.price}</span>
                   </div>
                   <p className="text-xs text-gray-400">/{plan.validityDays} days</p>

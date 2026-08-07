@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSelector } from 'react-redux'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
-  BookOpen, BookCopy, CalendarClock, CalendarDays, Clock, Eye, Grid3x3, Heart, Info, Library,
-  List, Pencil, Plus, Search, ShieldAlert, ShieldCheck, Timer, Trash2, Users, CheckCircle, RotateCcw, XCircle,
+  BookOpen, BookCopy, CalendarClock, CalendarDays, Clock, Eye, Grid3x3, Heart, ImagePlus, Info, Library,
+  List, Pencil, Plus, ShieldAlert, ShieldCheck, Timer, Trash2, Users, CheckCircle, RotateCcw, XCircle,
 } from 'lucide-react'
 import Button from '../components/Button.jsx'
+import BookCover from '../components/BookCover.jsx'
+import CategorySearchBar from '../components/CategorySearchBar.jsx'
 import DataTable from '../components/DataTable.jsx'
 import FormInput from '../components/FormInput.jsx'
 import Modal from '../components/Modal.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
+import Pagination from '../components/Pagination.jsx'
 import {
   bookService, borrowBook, reserveBook, getBookById, wishlistService, reservationService,
   readingHistoryService, userSubscriptionService, issuedBookService, getApiErrorMessage, borrowRequestService,
 } from '../services/api.js'
 import { selectUserRole, selectUser } from '../store/authSlice.js'
-
-const CATEGORIES = ['All', 'Fiction', 'Science', 'Technology', 'History', 'Biography']
+import { useCategories } from '../store/CategoryContext.js'
+import { preferCover, preloadCovers, preloadCover, DEFAULT_COVER } from '../utils/bookCovers.js'
 
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '')
 
@@ -44,16 +47,43 @@ const NEW_ARRIVALS_CUTOFF = Date.now() - 45 * 24 * 60 * 60 * 1000
 const emptyBook = {
   title: '',
   author: '',
-  category: 'Fiction',
+  category: '',
   isbn: '',
   totalCopies: 1,
-  availableCopies: 1,
+  availableCopies: null,
+}
+
+const BADGE_PALETTE = [
+  'bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300',
+  'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300',
+  'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300',
+  'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300',
+  'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300',
+  'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300',
+  'bg-teal-100 text-teal-800 dark:bg-teal-950/50 dark:text-teal-300',
+  'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-300',
+]
+
+const badgeColor = (cat) => {
+  const name = (cat || '').toLowerCase()
+  if (!name) return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+  let hash = 0
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0
+  }
+  return BADGE_PALETTE[hash % BADGE_PALETTE.length]
+}
+
+function GoldAura({ enabled, className = '', children }) {
+  if (!enabled) return children
+  return <span className={`aura-gold ${className}`}>{children}</span>
 }
 
 export default function Books() {
    const role = useSelector(selectUserRole)
    const currentUser = useSelector(selectUser)
    const navigate = useNavigate()
+   const { id: paramId } = useParams()
   const isMember = role === 'MEMBER'
   const isAdmin = role === 'ADMIN'
   const canManage = isAdmin
@@ -62,14 +92,20 @@ export default function Books() {
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
   const [debounced, setDebounced] = useState('')
-  const [category, setCategory] = useState('All')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { categories: dbCategories, loading: categoriesLoading, error: categoriesError, refresh: refreshCategories } = useCategories()
+  const [categoryId, setCategoryId] = useState(() => searchParams.get('cat') || '')
   const [view, setView] = useState('grid')
+  const [page, setPage] = useState(0)
+  const PAGE_SIZE = 8
   const [modalOpen, setModalOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyBook)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const [coverFile, setCoverFile] = useState(null)
+  const [coverPreview, setCoverPreview] = useState(null)
   const [borrowingId, setBorrowingId] = useState(null)
    const [reservingId, setReservingId] = useState(null)
    const [detailBook, setDetailBook] = useState(null)
@@ -82,6 +118,7 @@ export default function Books() {
    const [activeSub, setActiveSub] = useState(null)
    const [borrowedMap, setBorrowedMap] = useState({})
    const borrowedIds = useMemo(() => new Set(Object.keys(borrowedMap)), [borrowedMap])
+   const hasPaidPlan = !!activeSub && !!activeSub.plan && Number(activeSub.plan.price || 0) > 0
    const [favoriteGenre, setFavoriteGenre] = useState(null)
    const [quick, setQuick] = useState('all')
    const [authorFilter, setAuthorFilter] = useState('')
@@ -162,7 +199,8 @@ export default function Books() {
     }
   }
 
-   const handleOpenDetails = async (book) => {     try {
+   const handleOpenDetails = async (book) => {     preloadCover(preferCover(book))
+     try {
        const full = await getBookById(book.id)
        setDetailBook(full)
      } catch {
@@ -175,6 +213,17 @@ export default function Books() {
        setDetailQueue([])
      }
    }
+
+   useEffect(() => {
+     if (!paramId) return
+     getBookById(paramId)
+       .then((full) => { preloadCover(preferCover(full)); setDetailBook(full) })
+       .catch(() => {
+         toast.error(getApiErrorMessage({ message: 'Book not found' }))
+         navigate('/books')
+       })
+     reservationService.getWaitingQueue(paramId).then(setDetailQueue).catch(() => setDetailQueue([]))
+   }, [paramId, navigate])
 
    const refreshMemberProfile = useCallback(async () => {
      if (!isMember) return
@@ -276,6 +325,7 @@ export default function Books() {
         ? await bookService.search(debounced.trim())
         : await bookService.getAll()
       setBooks(data)
+      preloadCovers((data || []).map(preferCover))
     } catch (e) {
       toast.error(getApiErrorMessage(e))
     } finally {
@@ -348,8 +398,11 @@ export default function Books() {
         (b) => (b.title || '').toLowerCase().includes(keywordLower) || (b.author || '').toLowerCase().includes(keywordLower),
       )
     }
-    if (category !== 'All') {
-      rows = rows.filter((b) => (b.category || '').toLowerCase() === category.toLowerCase())
+    const selectedCategoryName = categoryId
+      ? dbCategories.find((c) => String(c.id) === String(categoryId))?.name
+      : ''
+    if (selectedCategoryName) {
+      rows = rows.filter((b) => (b.category || '').toLowerCase() === selectedCategoryName.toLowerCase())
     }
     if (authorFilter) {
       rows = rows.filter((b) => (b.author || '').toLowerCase() === authorFilter.toLowerCase())
@@ -400,12 +453,18 @@ export default function Books() {
         break
     }
     return row
-  }, [books, debounced, category, authorFilter, languageFilter, availabilityFilter, quick, favoriteGenre, sortBy])
+  }, [books, debounced, categoryId, dbCategories, authorFilter, languageFilter, availabilityFilter, quick, favoriteGenre, sortBy])
+
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, pages - 1)
+  const paginated = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
 
   const openCreate = () => {
     setEditing(null)
     setForm(emptyBook)
     setErrors({})
+    setCoverFile(null)
+    setCoverPreview(null)
     setModalOpen(true)
   }
 
@@ -414,12 +473,14 @@ export default function Books() {
     setForm({
       title: book.title,
       author: book.author,
-      category: book.category || 'Fiction',
+      category: book.category || '',
       isbn: book.isbn || '',
       totalCopies: book.totalCopies,
       availableCopies: book.availableCopies,
     })
     setErrors({})
+    setCoverFile(null)
+    setCoverPreview(preferCover(book))
     setModalOpen(true)
   }
 
@@ -439,6 +500,7 @@ export default function Books() {
     if (!validate()) return
     setSaving(true)
     try {
+      let saved
       if (editing) {
         const updated = await bookService.update(editing.id, {
           ...editing,
@@ -448,7 +510,7 @@ export default function Books() {
           isbn: form.isbn.trim() || null,
           totalCopies: Number(form.totalCopies),
         })
-        setBooks((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
+        saved = updated
         toast.success('Book updated')
       } else {
         const created = await bookService.create({
@@ -459,15 +521,46 @@ export default function Books() {
           totalCopies: Number(form.totalCopies),
           availableCopies: Number(form.availableCopies ?? form.totalCopies),
         })
-        setBooks((prev) => [created, ...prev])
+        saved = created
         toast.success('Book added')
       }
+      if (coverFile) {
+        try {
+          saved = await bookService.uploadCover(saved.id, coverFile)
+          toast.success('Cover uploaded')
+        } catch (e) {
+          toast.error(`Book saved but cover failed: ${getApiErrorMessage(e)}`)
+        }
+      }
+      setBooks((prev) => {
+        const exists = prev.some((b) => b.id === saved.id)
+        return exists ? prev.map((b) => (b.id === saved.id ? saved : b)) : [saved, ...prev]
+      })
+      setCoverFile(null)
+      setCoverPreview(null)
       setModalOpen(false)
     } catch (e) {
       toast.error(getApiErrorMessage(e))
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleCoverChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Only image files are allowed (JPEG, PNG, etc).')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Cover image must be 5MB or smaller.')
+      e.target.value = ''
+      return
+    }
+    setCoverFile(file)
+    setCoverPreview(URL.createObjectURL(file))
   }
 
   const confirmDelete = async () => {
@@ -482,17 +575,6 @@ export default function Books() {
       toast.error(getApiErrorMessage(e))
       load()
     }
-  }
-
-  const badgeColor = (cat) => {
-    const map = {
-      Fiction: 'bg-violet-100 text-violet-800',
-      Science: 'bg-sky-100 text-sky-800',
-      Technology: 'bg-indigo-100 text-indigo-800',
-      History: 'bg-amber-100 text-amber-800',
-      Biography: 'bg-emerald-100 text-emerald-800',
-    }
-    return map[cat] || 'bg-gray-100 text-gray-700'
   }
 
   const columns = [
@@ -552,7 +634,7 @@ export default function Books() {
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
-            <CheckCircle className="h-5 w-5" />
+            <BookCopy className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-lg font-bold text-gray-900 dark:text-gray-50">{catalogStats.availableCopies}</p>
@@ -580,16 +662,28 @@ export default function Books() {
       </div>
 
       <div className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative max-w-xl flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Search by title or author..."
-            className="w-full rounded-xl border border-gray-200 bg-gray-50/60 py-2.5 pl-10 pr-3 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-gray-800 dark:bg-gray-800/60 dark:focus:bg-gray-900"
-            aria-label="Search books"
-          />
-        </div>
+        <CategorySearchBar
+          className="max-w-2xl flex-1 min-w-0"
+          categories={dbCategories.map((c) => ({ value: String(c.id), label: c.name }))}
+          selectedCategory={categoryId}
+          onCategoryChange={(v) => {
+            setCategoryId(v || '')
+            setPage(0)
+            if (v) setSearchParams((prev) => ({ ...Object.fromEntries(prev), cat: v }), { replace: true })
+            else {
+              const next = new URLSearchParams(searchParams)
+              next.delete('cat')
+              setSearchParams(next, { replace: true })
+            }
+          }}
+          value={keyword}
+          onValueChange={(v) => { setKeyword(v); setPage(0) }}
+          placeholder="Search by title or author..."
+          ariaLabel="Search books"
+          loading={categoriesLoading}
+          error={categoriesError}
+          onRetry={refreshCategories}
+        />
         {canManage && (
           <div className="flex items-center gap-2">
             <Button variant={view === 'grid' ? 'primary' : 'secondary'} size="sm" type="button" onClick={() => setView('grid')} icon={Grid3x3}>
@@ -613,7 +707,7 @@ export default function Books() {
           <button
             key={q.key}
             type="button"
-            onClick={() => setQuick(q.key)}
+            onClick={() => { setQuick(q.key); setPage(0) }}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
               quick === q.key
                 ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
@@ -630,7 +724,7 @@ export default function Books() {
           <span className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Author</span>
           <select
             value={authorFilter}
-            onChange={(e) => setAuthorFilter(e.target.value)}
+            onChange={(e) => { setAuthorFilter(e.target.value); setPage(0) }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
           >
             <option value="">All Authors</option>
@@ -641,7 +735,7 @@ export default function Books() {
           <span className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Language</span>
           <select
             value={languageFilter}
-            onChange={(e) => setLanguageFilter(e.target.value)}
+            onChange={(e) => { setLanguageFilter(e.target.value); setPage(0) }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
           >
             <option value="">All Languages</option>
@@ -652,7 +746,7 @@ export default function Books() {
           <span className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Availability</span>
           <select
             value={availabilityFilter}
-            onChange={(e) => setAvailabilityFilter(e.target.value)}
+            onChange={(e) => { setAvailabilityFilter(e.target.value); setPage(0) }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
           >
             <option value="all">All Availability</option>
@@ -664,7 +758,7 @@ export default function Books() {
           <span className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Sort By</span>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => { setSortBy(e.target.value); setPage(0) }}
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
           >
             <option value="popular">Most Popular</option>
@@ -676,7 +770,7 @@ export default function Books() {
         </label>
       </div>
 
-      {(authorFilter || languageFilter || availabilityFilter !== 'all' || sortBy !== 'popular' || quick !== 'all' || category !== 'All') && (
+      {(authorFilter || languageFilter || availabilityFilter !== 'all' || sortBy !== 'popular' || quick !== 'all' || categoryId) && (
         <div className="flex justify-end">
           <Button
             variant="secondary" size="xs" type="button" icon={RotateCcw}
@@ -686,7 +780,11 @@ export default function Books() {
               setAvailabilityFilter('all')
               setSortBy('popular')
               setQuick('all')
-              setCategory('All')
+              setCategoryId('')
+              const next = new URLSearchParams(searchParams)
+              next.delete('cat')
+              setSearchParams(next, { replace: true })
+              setPage(0)
             }}
           >
             Reset Filters
@@ -695,25 +793,52 @@ export default function Books() {
       )}
 
       <div className="flex flex-wrap gap-2">
-        {CATEGORIES.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setCategory(c)}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-              category === c
-                ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200'
-            }`}
-          >
-            {c}
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={() => {
+            setCategoryId('')
+            const next = new URLSearchParams(searchParams)
+            next.delete('cat')
+            setSearchParams(next, { replace: true })
+            setPage(0)
+          }}
+          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+            !categoryId
+              ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200'
+          }`}
+        >
+          All
+        </button>
+        {dbCategories.map((c) => {
+          const active = String(categoryId) === String(c.id)
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => {
+                setCategoryId(String(c.id))
+                setSearchParams((prev) => ({ ...Object.fromEntries(prev), cat: String(c.id) }), { replace: true })
+                setPage(0)
+              }}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                active
+                  ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200'
+              }`}
+            >
+              {c.name}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+        <div className="flex flex-col items-center gap-4">
+          <img src="/books.gif" alt="Loading books" className="h-24 w-24 object-contain" />
+          <div className="grid gap-4 md:grid-cols-2">
+            {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+          </div>
         </div>
       ) : view === 'table' && canManage ? (
         <DataTable
@@ -721,7 +846,7 @@ export default function Books() {
           data={filtered}
           searchKeys={['title', 'author', 'isbn']}
           actions={(row) => (
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               {isAdmin && (
                 <>
                   <Button variant="secondary" size="sm" type="button" icon={Pencil} onClick={() => openEdit(row)}>
@@ -742,41 +867,36 @@ export default function Books() {
           <p className="mt-1 text-sm text-gray-500 max-w-sm">Try adjusting your search or filters.</p>
         </div>
       ) : (
+        <>
         <div className="grid gap-4 md:grid-cols-2">
-          {filtered.map((book) => {
+          {paginated.map((book) => {
             const borrowed = Math.max(0, (book.totalCopies ?? 0) - (book.availableCopies ?? 0))
-            const status = book.availableCopies === 0 ? 'Out of Stock'
-              : book.availableCopies < book.totalCopies / 3 ? 'Low Stock'
-              : 'Available'
-            const statusColor = status === 'Available' ? 'bg-emerald-50 text-emerald-700'
-              : status === 'Low Stock' ? 'bg-amber-50 text-amber-700'
-              : 'bg-red-50 text-red-700'
             return (
             <article
               key={book.id}
               onClick={() => handleOpenDetails(book)}
-              className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg dark:border-gray-800 dark:bg-gray-900 sm:flex-row"
+              className="group flex h-full cursor-pointer overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg dark:border-gray-800 dark:bg-gray-900"
             >
-              <figure className="relative h-36 shrink-0 bg-gradient-to-br from-primary-500 via-sky-500 to-indigo-600 sm:h-auto sm:w-40">
-                {book.coverImageUrl ? (
-                  <img src={book.coverImageUrl} alt={book.title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-white/90">
-                    {book.title?.charAt(0)?.toUpperCase()}
-                  </div>
-                )}
+              <figure className="relative w-[150px] shrink-0 self-stretch bg-gradient-to-br from-primary-500 via-sky-500 to-indigo-600">
+                <BookCover
+                  src={preferCover(book)}
+                  alt={book.title}
+                  className="h-full w-full"
+                  imgClassName="h-full w-full rounded-l-xl object-cover"
+                />
                 <span className="absolute left-3 top-3 rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30 backdrop-blur">
                   {book.category}
                 </span>
               </figure>
-              <div className="flex flex-1 flex-col gap-2 p-4">
-                <h2 className="text-lg font-semibold leading-snug text-gray-900 dark:text-gray-50">{book.title}</h2>
-                <p className="text-sm text-gray-500">{book.author}</p>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className={`rounded-full px-2 py-0.5 font-semibold ${statusColor}`}>{status}</span>
-                  {book.isbn && <span className="text-gray-400">ISBN: {book.isbn}</span>}
-                  {book.publisher && <span className="text-gray-400">{book.publisher}</span>}
-                  {book.shelfLocation && <span className="text-gray-400">Shelf {book.shelfLocation}</span>}
+              <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
+                <div>
+                  <h2 className="text-lg font-semibold leading-snug text-gray-900 dark:text-gray-50">{book.title}</h2>
+                  <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{book.author}</p>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                  {book.isbn && <span><span className="font-semibold text-gray-700 dark:text-gray-300">ISBN:</span> {book.isbn}</span>}
+                  {book.publisher && <span><span className="font-semibold text-gray-700 dark:text-gray-300">Publisher:</span> {book.publisher}</span>}
+                  {book.shelfLocation && <span><span className="font-semibold text-gray-700 dark:text-gray-300">Shelf:</span> {book.shelfLocation}</span>}
                 </div>
                 <div className="mt-1 grid grid-cols-3 gap-2 rounded-xl bg-gray-50 p-2.5 text-center text-xs dark:bg-gray-800/50">
                   <div>
@@ -829,15 +949,17 @@ export default function Books() {
                                   </span>
                                 )}
                               </div>
-                              <Button
-                                variant="primary" size="sm" className="w-full" type="button"
-                                icon={BookOpen}
-                                loading={borrowingId === book.id}
-                                disabled={borrowingId === book.id}
-                                onClick={() => setBorrowConfirmBook(book)}
-                              >
-                                Borrow Now
-                              </Button>
+                              <GoldAura enabled={hasPaidPlan} className="block">
+                                <Button
+                                  variant="primary" size="sm" className="w-full" type="button"
+                                  icon={BookOpen}
+                                  loading={borrowingId === book.id}
+                                  disabled={borrowingId === book.id}
+                                  onClick={() => setBorrowConfirmBook(book)}
+                                >
+                                  Borrow Now
+                                </Button>
+                              </GoldAura>
                             </div>
                           )
                         }
@@ -906,15 +1028,17 @@ export default function Books() {
                         }
                         if (book.availableCopies > 0) {
                           return (
-                            <Button
-                              variant="primary" size="sm" className="flex-1" type="button"
-                              icon={BookOpen}
-                              loading={borrowingId === book.id}
-                              disabled={borrowingId === book.id}
-                              onClick={() => { setBorrowStartDate(todayISO()); setBorrowConfirmBook(book) }}
-                            >
-                              Borrow
-                            </Button>
+                            <GoldAura enabled={hasPaidPlan} className="flex-1">
+                              <Button
+                                variant="primary" size="sm" className="w-full" type="button"
+                                icon={BookOpen}
+                                loading={borrowingId === book.id}
+                                disabled={borrowingId === book.id}
+                                onClick={() => { setBorrowStartDate(todayISO()); setBorrowConfirmBook(book) }}
+                              >
+                                Borrow
+                              </Button>
+                            </GoldAura>
                           )
                         }
                         return (
@@ -936,10 +1060,10 @@ export default function Books() {
                       <Button variant="secondary" size="sm" className="flex-1" type="button" icon={Pencil} onClick={() => openEdit(book)}>
                         Edit
                       </Button>
-                      <Button variant="secondary" size="sm" type="button" icon={BookOpen} onClick={() => handleOpenDetails(book)}>
+                      <Button variant="secondary" size="sm" className="flex-1" type="button" icon={BookOpen} onClick={() => handleOpenDetails(book)}>
                         Details
                       </Button>
-                      <Button variant="danger" size="sm" type="button" icon={Trash2} onClick={() => setDeleteTarget(book)}>
+                      <Button variant="danger" size="sm" className="flex-1" type="button" icon={Trash2} onClick={() => setDeleteTarget(book)}>
                         Delete
                       </Button>
                     </div>
@@ -950,6 +1074,11 @@ export default function Books() {
             )
           })}
         </div>
+
+        {pages > 1 && (
+          <Pagination currentPage={currentPage} totalPages={pages} onChange={setPage} />
+        )}
+        </>
       )}
 
       {canManage && (
@@ -959,7 +1088,7 @@ export default function Books() {
             onClose={() => setModalOpen(false)}
             title={editing ? 'Edit book' : 'Add book'}
             footer={
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>
                   Cancel
                 </Button>
@@ -989,9 +1118,10 @@ export default function Books() {
                   onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-800 dark:bg-gray-900"
                 >
-                  {CATEGORIES.filter((c) => c !== 'All').map((c) => (
-                    <option key={c} value={c}>
-                      {c}
+                  <option value="">Select category</option>
+                  {dbCategories.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
                     </option>
                   ))}
                 </select>
@@ -1006,15 +1136,41 @@ export default function Books() {
                 error={errors.totalCopies}
               />
               {!editing ? (
-                <FormInput
-                  label="Available copies"
-                  type="number"
-                  min="0"
-                  value={form.availableCopies}
-                  onChange={(e) => setForm((f) => ({ ...f, availableCopies: Number(e.target.value) }))}
-                  error={errors.availableCopies}
-                />
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                  <CheckCircle className="h-4 w-4" /> All copies start available (synchronized with total)
+                </div>
               ) : null}
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">Upload Cover</label>
+                <div className="flex items-center gap-4">
+                  <BookCover
+                    src={coverPreview || DEFAULT_COVER}
+                    alt="Cover preview"
+                    eager
+                    className="h-28 w-20 shrink-0"
+                    imgClassName="h-full w-full rounded-lg object-cover shadow ring-1 ring-gray-200 dark:ring-gray-800"
+                  />
+                  <div className="flex-1">
+                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/60 px-4 py-4 text-center hover:border-primary-400 hover:bg-primary-50/40 dark:border-gray-800 dark:bg-gray-800/40 dark:hover:border-primary-500 dark:hover:bg-primary-950/40">
+                      <ImagePlus className="mb-1 h-5 w-5 text-gray-400" />
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                        {coverFile ? coverFile.name : editing ? 'Choose a new cover image (optional)' : 'Choose a cover image (optional)'}
+                      </span>
+                      <span className="mt-0.5 text-[11px] text-gray-400">JPEG, PNG or WebP · max 5MB</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+                    </label>
+                    {coverFile && (
+                      <button
+                        type="button"
+                        onClick={() => { setCoverFile(null); setCoverPreview(editing ? preferCover(editing) : null) }}
+                        className="mt-2 text-xs font-medium text-rose-600 hover:underline dark:text-rose-400"
+                      >
+                        Remove selected cover
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </Modal>
 
@@ -1024,7 +1180,7 @@ export default function Books() {
             title="Delete book?"
             size="sm"
             footer={
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button variant="secondary" type="button" onClick={() => setDeleteTarget(null)}>
                   Cancel
                 </Button>
@@ -1044,20 +1200,20 @@ export default function Books() {
       <>
         <Modal
           open={!!detailBook}
-          onClose={() => setDetailBook(null)}
+          onClose={() => { setDetailBook(null); if (paramId) navigate('/books') }}
             title={detailBook?.title || 'Book details'}
             size="lg"
             className="max-h-[90vh] overflow-y-auto"
           >
             {detailBook && (
               <div className="space-y-5">
-                {detailBook.coverImageUrl && (
-                  <img
-                    src={detailBook.coverImageUrl}
-                    alt={detailBook.title}
-                    className="mx-auto h-48 w-36 rounded-xl object-cover shadow-lg"
-                  />
-                )}
+                <BookCover
+                  src={preferCover(detailBook)}
+                  alt={detailBook.title}
+                  priority
+                  className="mx-auto h-48 w-36"
+                  imgClassName="h-full w-full rounded-xl object-cover shadow-lg"
+                />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Author</p>
@@ -1147,7 +1303,7 @@ export default function Books() {
                   </div>
                 )}
                 {(isMember) && (
-                  <div className="flex justify-end gap-2 pt-2">
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end pt-2">
                     <Button
                       variant="secondary" type="button"
                       icon={Heart}
@@ -1161,14 +1317,16 @@ export default function Books() {
                       const isReserved = r && (r.status === 'WAITING' || r.status === 'READY_FOR_PICKUP')
                       if (isReserved && r.status === 'READY_FOR_PICKUP') {
                         return (
-                          <Button
-                            type="button"
-                            variant="primary"
-                            icon={BookOpen}
-                            onClick={() => { setDetailBook(null); setBorrowConfirmBook(detailBook) }}
-                          >
-                            Borrow Now
-                          </Button>
+                          <GoldAura enabled={hasPaidPlan}>
+                            <Button
+                              type="button"
+                              variant="primary"
+                              icon={BookOpen}
+                              onClick={() => { setDetailBook(null); setBorrowConfirmBook(detailBook) }}
+                            >
+                              Borrow Now
+                            </Button>
+                          </GoldAura>
                         )
                       }
                       if (isReserved && r.status === 'WAITING') {
@@ -1209,15 +1367,17 @@ export default function Books() {
                       }
                       if (detailBook.availableCopies > 0) {
                         return (
-                          <Button
-                            type="button"
-                            icon={BookOpen}
-                            loading={borrowingId === detailBook.id}
-                            disabled={borrowingId === detailBook.id}
-                            onClick={() => { setDetailBook(null); setBorrowStartDate(todayISO()); setBorrowConfirmBook(detailBook) }}
-                          >
-                            Borrow
-                          </Button>
+                          <GoldAura enabled={hasPaidPlan}>
+                            <Button
+                              type="button"
+                              icon={BookOpen}
+                              loading={borrowingId === detailBook.id}
+                              disabled={borrowingId === detailBook.id}
+                              onClick={() => { setDetailBook(null); setBorrowStartDate(todayISO()); setBorrowConfirmBook(detailBook) }}
+                            >
+                              Borrow
+                            </Button>
+                          </GoldAura>
                         )
                       }
                       return (
@@ -1245,7 +1405,7 @@ export default function Books() {
               size="md"
               onClose={() => setReserveConfirmBook(null)}
               footer={
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button variant="secondary" type="button" onClick={() => setReserveConfirmBook(null)}>
                     Cancel
                   </Button>
@@ -1310,7 +1470,7 @@ export default function Books() {
               size="sm"
               onClose={() => setCancelReserveBook(null)}
               footer={
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button variant="secondary" type="button" onClick={() => setCancelReserveBook(null)}>
                     Keep Reservation
                   </Button>
@@ -1354,18 +1514,20 @@ export default function Books() {
               size="md"
               onClose={() => setBorrowConfirmBook(null)}
               footer={
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <Button variant="secondary" type="button" onClick={() => setBorrowConfirmBook(null)}>
                     Cancel
                   </Button>
-                  <Button
-                    variant="primary"
-                    type="button"
-                    loading={borrowingId === borrowConfirmBook.id}
-                    onClick={() => { const b = borrowConfirmBook; setBorrowConfirmBook(null); if (isPickup) handleBorrow(b.id); else handleBorrowRequest(b.id, borrowStartDate, dueDateISO) }}
-                  >
-                    {isPickup ? 'Confirm Borrow' : 'Send Borrow Request'}
-                  </Button>
+                  <GoldAura enabled={hasPaidPlan}>
+                    <Button
+                      variant="primary"
+                      type="button"
+                      loading={borrowingId === borrowConfirmBook.id}
+                      onClick={() => { const b = borrowConfirmBook; setBorrowConfirmBook(null); if (isPickup) handleBorrow(b.id); else handleBorrowRequest(b.id, borrowStartDate, dueDateISO) }}
+                    >
+                      {isPickup ? 'Confirm Borrow' : 'Send Borrow Request'}
+                    </Button>
+                  </GoldAura>
                 </div>
               }
             >
@@ -1375,13 +1537,12 @@ export default function Books() {
                     <BookCopy className="h-3.5 w-3.5" /> Book Information
                   </h4>
                   <div className="flex items-start gap-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
-                    {borrowConfirmBook.coverImageUrl ? (
-                      <img src={borrowConfirmBook.coverImageUrl} alt="" className="h-20 w-14 shrink-0 rounded-md object-cover shadow-sm" />
-                    ) : (
-                      <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-md bg-primary-100 text-primary-600 dark:bg-primary-950">
-                        <BookOpen className="h-6 w-6" />
-                      </div>
-                    )}
+                    <BookCover
+                      src={preferCover(borrowConfirmBook)}
+                      alt=""
+                      className="h-20 w-14 shrink-0"
+                      imgClassName="h-full w-full rounded-md object-cover shadow-sm"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-gray-900 dark:text-gray-50">{borrowConfirmBook.title}</p>
                       <p className="text-sm text-gray-500">{borrowConfirmBook.author}</p>
@@ -1409,27 +1570,36 @@ export default function Books() {
                     <h4 className={`flex items-center gap-1.5 ${sectionTitle}`}>
                       <CalendarDays className="h-3.5 w-3.5" /> Borrow Details
                     </h4>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">
-                          Borrow Date
-                        </label>
+                    <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center">
+                      <div className="relative w-full flex-1">
+                        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3">
+                          <CalendarDays className="h-4 w-4 text-gray-400" />
+                        </div>
                         <input
+                          id="borrow-date-start"
+                          name="start"
                           type="date"
                           min={todayISO()}
                           value={borrowStartDate}
                           onChange={(e) => setBorrowStartDate(e.target.value)}
-                          className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100"
+                          placeholder="Select date start"
+                          className="block w-full rounded-lg border border-gray-200 bg-white py-2.5 ps-9 pe-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500"
                         />
                       </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600 dark:text-gray-300">
-                          Due Date
-                        </label>
-                        <div className="flex h-[38px] items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-800 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-100">
-                          <CalendarClock className="h-4 w-4 text-primary-500" />
-                          {dueDateISO ? fmtDate(dueDateISO) : '—'}
+                      <span className="text-sm text-gray-500">to</span>
+                      <div className="relative w-full flex-1">
+                        <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3">
+                          <CalendarClock className="h-4 w-4 text-gray-400" />
                         </div>
+                        <input
+                          id="borrow-date-end"
+                          name="end"
+                          type="text"
+                          value={dueDateISO ? fmtDate(dueDateISO) : '—'}
+                          readOnly
+                          disabled
+                          className="block w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 py-2.5 ps-9 pe-3 text-sm font-semibold text-gray-800 shadow-sm placeholder:text-gray-400 focus:outline-none dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-100"
+                        />
                       </div>
                     </div>
                     <p className="rounded-lg bg-primary-50 px-2 py-1.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">

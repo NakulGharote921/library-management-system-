@@ -19,6 +19,8 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     List<User> findByRole(User.Role role);
 
+    long countByRole(User.Role role);
+
     @Query("SELECT u FROM User u WHERE LOWER(u.name) LIKE LOWER(CONCAT('%', :k, '%')) OR LOWER(u.email) LIKE LOWER(CONCAT('%', :k, '%'))")
     List<User> searchByNameOrEmail(@Param("k") String keyword);
 }

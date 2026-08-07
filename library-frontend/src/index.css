@@ -9,6 +9,18 @@
   body {
     @apply bg-gray-50 text-gray-900 antialiased;
   }
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition:
+      background-color 300ms ease,
+      border-color 300ms ease,
+      color 300ms ease,
+      fill 300ms ease,
+      stroke 300ms ease,
+      box-shadow 300ms ease !important;
+  }
 }
 
 @layer utilities {
@@ -88,6 +100,24 @@
   }
 }
 
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float 9s ease-in-out infinite;
+}
+
 @keyframes skeleton-shimmer {
   0% {
     background-position: 200% 0;
@@ -129,6 +159,28 @@
 
 .dark .aura {
   box-shadow: 0 0 24px rgba(168, 85, 247, 0.4);
+}
+
+.aura-gold {
+  --aura-angle: 0deg;
+  position: relative;
+  display: inline-block;
+  border-radius: 0.5rem;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--aura-angle),
+    #fde68a,
+    #f59e0b,
+    #fbbf24,
+    #f59e0b,
+    #fde68a
+  );
+  animation: aura-spin 4s linear infinite;
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.45);
+}
+
+.dark .aura-gold {
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.55);
 }
 
 /* Custom scrollbar */

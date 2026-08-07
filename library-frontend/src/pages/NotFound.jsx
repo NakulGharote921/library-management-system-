@@ -11,7 +11,7 @@ export default function NotFound() {
       </div>
       <p className="mt-6 text-5xl font-black text-gray-900 dark:text-gray-50">404</p>
       <h1 className="mt-2 text-2xl font-semibold text-gray-800 dark:text-gray-100">Page not found</h1>
-      <p className="mt-2 max-w-md text-sm text-gray-500">
+      <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
         The page you are looking for might have been moved, renamed, or is temporarily unavailable.
       </p>
       <div className="mt-8">

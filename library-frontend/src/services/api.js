@@ -6,7 +6,9 @@ function apiBaseUrl() {
   return '/api'
 }
 
-const api = axios.create({
+export const API_BASE_URL = apiBaseUrl()
+
+export const api = axios.create({
   baseURL: apiBaseUrl(),
   headers: { 'Content-Type': 'application/json' },
   timeout: 20000,
@@ -23,7 +25,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
@@ -55,7 +57,14 @@ export const bookService = {
   remove: (id) => api.delete(`/books/${id}`).then((r) => r.data),
   search: (keyword) => api.get('/books/search', { params: { keyword } }).then((r) => r.data),
   getAvailable: () => api.get('/books/available').then((r) => r.data),
-  deleteCategory: (name) => api.delete(`/books/categories/${encodeURIComponent(name)}`).then((r) => r.data),
+  getByCategoryId: (categoryId) => api.get(`/books/by-category/${categoryId}`).then((r) => r.data),
+  uploadCover: (id, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/books/${id}/cover`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data)
+  },
 }
 
 export const userService = {
@@ -189,6 +198,10 @@ export const subscriptionService = {
   deletePlan: (id) => api.delete(`/subscription-plans/${id}`),
 }
 
+export const homeStatsService = {
+  get: () => api.get('/public/home-stats').then((r) => r.data),
+}
+
 export const userSubscriptionService = {
   purchase: (planId) => api.post(`/subscriptions/purchase/${planId}`).then((r) => r.data),
   activate: (subscriptionId, razorpayOrderId, razorpayPaymentId) =>
@@ -196,6 +209,7 @@ export const userSubscriptionService = {
   cancel: (subscriptionId) => api.post(`/subscriptions/${subscriptionId}/cancel`),
   getMy: () => api.get('/subscriptions/my').then((r) => r.data),
   getActive: () => api.get('/subscriptions/active').then((r) => r.data),
+  getSummary: () => api.get('/subscriptions/summary').then((r) => r.data),
 }
 
 export const analyticsService = {

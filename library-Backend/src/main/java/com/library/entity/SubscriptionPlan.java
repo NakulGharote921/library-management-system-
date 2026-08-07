@@ -54,6 +54,21 @@ public class SubscriptionPlan {
 
     @Column(nullable = false)
     @Builder.Default
+    private int maxReservations = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private int displayOrder = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean featured = false;
+
+    @Column(columnDefinition = "TEXT")
+    private String features;
+
+    @Column(nullable = false)
+    @Builder.Default
     private boolean priorityReservation = false;
 
     @Column(nullable = false)

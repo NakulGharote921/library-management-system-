@@ -1,37 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import Chart from 'chart.js/auto'
 import toast from 'react-hot-toast'
+import { Link } from 'react-router-dom'
 import {
-  Library, Users, BookOpen, BookMarked, BarChart3,
-  AlertTriangle, Clock, RefreshCw, CalendarClock, CreditCard, Percent, Copy,
+  BookOpen, RefreshCw, ArrowRight, ChevronDown, Download, Info, TrendingDown, TrendingUp,
 } from 'lucide-react'
 import Button from '../components/Button.jsx'
-import { CardSkeleton } from '../components/PageSkeleton.jsx'
-import { adminDashboardService, getApiErrorMessage } from '../services/api.js'
-
-const CARD_COLORS = {
-  blue: 'from-blue-400 to-blue-600',
-  violet: 'from-violet-400 to-violet-600',
-  emerald: 'from-emerald-400 to-emerald-600',
-  amber: 'from-amber-400 to-amber-600',
-  rose: 'from-rose-400 to-rose-600',
-  sky: 'from-sky-400 to-sky-600',
-  indigo: 'from-indigo-400 to-indigo-600',
-}
-
-const METRICS = [
-  { key: 'totalBooks', label: 'Total Books', subtitle: 'In catalog', icon: Library, color: CARD_COLORS.blue },
-  { key: 'totalMembers', label: 'Total Members', subtitle: 'Registered members', icon: Users, color: CARD_COLORS.violet },
-  { key: 'totalCopies', label: 'Total Copies', subtitle: 'Copies owned', icon: Copy, color: CARD_COLORS.indigo },
-  { key: 'availableCopies', label: 'Available Copies', subtitle: 'On shelves', icon: BookMarked, color: CARD_COLORS.emerald },
-  { key: 'borrowedCopies', label: 'Borrowed Copies', subtitle: 'On loan', icon: BookOpen, color: CARD_COLORS.amber },
-  { key: 'activeLoans', label: 'Active Loans', subtitle: 'Currently issued', icon: BarChart3, color: CARD_COLORS.blue },
-  { key: 'overdueBooks', label: 'Overdue Books', subtitle: 'Past due date', icon: AlertTriangle, color: CARD_COLORS.rose },
-  { key: 'activeReservations', label: 'Active Reservations', subtitle: 'Ready for pickup', icon: CalendarClock, color: CARD_COLORS.amber },
-  { key: 'waitingReservations', label: 'Waiting Reservations', subtitle: 'In queue', icon: Clock, color: CARD_COLORS.sky },
-  { key: 'activeSubscriptions', label: 'Active Subscriptions', subtitle: 'Paid memberships', icon: CreditCard, color: CARD_COLORS.violet },
-  { key: 'overdueRate', label: 'Overdue Rate', subtitle: '% of active loans', icon: Percent, color: CARD_COLORS.rose, format: (v) => `${String(Number(v ?? 0).toFixed(1)).replace(/\.0$/, '')}%` },
-]
+import { adminDashboardService, getApiErrorMessage, paymentService } from '../services/api.js'
 
 function formatCurrency(amount) {
   if (amount == null) return '₹0'
@@ -39,52 +14,48 @@ function formatCurrency(amount) {
   return '₹' + num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function MetricCard({ metric, value, loading }) {
-  const displayValue = loading
-    ? '—'
-    : metric.format
-      ? metric.format(value)
-      : metric.prefix
-        ? formatCurrency(value)
-        : (value ?? 0) + (metric.suffix ?? '')
+const RANGE_DAYS = { Yesterday: 1, Today: 1, 'Last 7 days': 7, 'Last 30 days': 30, 'Last 90 days': 90 }
 
-  return (
-    <div className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br ${metric.color} opacity-10 blur-2xl`} />
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500">{metric.label}</p>
-          <p className={`mt-2 text-3xl font-bold text-gray-900 dark:text-gray-50 ${loading ? 'animate-pulse' : ''}`}>
-            {displayValue}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">{metric.subtitle}</p>
-        </div>
-        <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${metric.color} text-white shadow-inner`}>
-          <metric.icon className="h-6 w-6" />
-        </div>
-      </div>
-    </div>
-  )
+function startOfDay(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
-function RevenueChart() {
+function addDays(date, days) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+function ymd(date) {
+  const d = new Date(date)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function RevenueReportCard() {
+  const cardRef = useRef(null)
   const canvasRef = useRef(null)
-  const [range, setRange] = useState('6m')
-  const [series, setSeries] = useState(null)
-  const [chartLoading, setChartLoading] = useState(true)
+  const [payments, setPayments] = useState([])
+  const [paymentsLoading, setPaymentsLoading] = useState(true)
+  const [range, setRange] = useState('Last 30 days')
+  const [rangeOpen, setRangeOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    adminDashboardService
-      .getMonthlyRevenue(12)
-      .then((points) => {
+    paymentService
+      .getHistory({ status: 'SUCCESS' })
+      .then((list) => {
         if (cancelled) return
-        setSeries(points)
-        setChartLoading(false)
+        setPayments(list || [])
+        setPaymentsLoading(false)
       })
       .catch((e) => {
         if (cancelled) return
-        setChartLoading(false)
+        setPaymentsLoading(false)
         toast.error(getApiErrorMessage(e))
       })
     return () => {
@@ -92,67 +63,97 @@ function RevenueChart() {
     }
   }, [])
 
-  const chartData = useMemo(() => {
-    if (!series) return { labels: [], values: [] }
-    const count = range === '6m' ? 6 : 12
-    const slice = series.slice(-count)
-    return {
-      labels: slice.map((p) => p.month),
-      values: slice.map((p) => Number(p.revenue) || 0),
+  const derived = useMemo(() => {
+    const now = new Date()
+    const today = startOfDay(now)
+    const days = RANGE_DAYS[range] ?? 30
+    const start = range === 'Yesterday' ? addDays(today, -1) : range === 'Today' ? today : addDays(today, -(days - 1))
+    const endDate = range === 'Yesterday' || range === 'Today' ? start : today
+    const windowEnd = addDays(endDate, 1)
+
+    const inWindow = payments.filter((p) => {
+      if (!p.completedAt) return false
+      const t = new Date(p.completedAt)
+      return t >= start && t < windowEnd
+    })
+
+    let subscriptions = 0
+    let fines = 0
+    for (const p of inWindow) {
+      const amount = Number(p.amount || 0)
+      if (p.paymentType === 'SUBSCRIPTION') subscriptions += amount
+      else fines += amount
     }
-  }, [series, range])
+    const total = subscriptions + fines
+
+    const prevStart = addDays(start, -days)
+    const prevEnd = addDays(start, -1)
+    const prevTotal = payments
+      .filter((p) => {
+        if (!p.completedAt) return false
+        const t = new Date(p.completedAt)
+        return t >= prevStart && t < addDays(prevEnd, 1)
+      })
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    const growth = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : null
+
+    const buckets = []
+    for (let d = new Date(start); d <= endDate; d = addDays(d, 1)) {
+      const key = ymd(d)
+      buckets.push({ key, label: d.getDate(), value: 0 })
+    }
+    const bucketMap = new Map(buckets.map((b) => [b.key, b]))
+    for (const p of inWindow) {
+      const key = ymd(new Date(p.completedAt))
+      if (bucketMap.has(key)) bucketMap.get(key).value += Number(p.amount || 0)
+    }
+
+    return { total, subscriptions, fines, growth, buckets }
+  }, [payments, range])
+
+  useEffect(() => {
+    const handle = (e) => {
+      if (cardRef.current && !cardRef.current.contains(e.target)) setRangeOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || chartLoading) return
-    const ctx = canvas.getContext('2d')
-    const gradient = ctx.createLinearGradient(0, 0, 0, 256)
-    gradient.addColorStop(0, 'rgba(129, 140, 248, 0.3)')
-    gradient.addColorStop(1, 'rgba(129, 140, 248, 0)')
+    if (!canvas || paymentsLoading) return
     const chart = new Chart(canvas, {
-      type: 'line',
+      type: 'bar',
       data: {
-        labels: chartData.labels,
+        labels: derived.buckets.map((b) => b.label),
         datasets: [
           {
-            label: 'Revenue',
-            data: chartData.values,
-            borderColor: '#818cf8',
-            backgroundColor: gradient,
-            borderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 5,
-            pointHoverBackgroundColor: '#818cf8',
-            pointHoverBorderColor: '#111827',
-            pointHoverBorderWidth: 2,
-            tension: 0.35,
-            fill: true,
+            data: derived.buckets.map((b) => b.value),
+            backgroundColor: '#6366f1',
+            borderRadius: 4,
+            maxBarThickness: 28,
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
         plugins: {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (item) => `₹${Number(item.parsed.y).toLocaleString('en-IN')}`,
+              label: (item) => ` Revenue: ₹${Number(item.parsed.y).toLocaleString('en-IN')}`,
             },
           },
         },
         scales: {
           x: {
             grid: { display: false },
-            ticks: { color: '#9ca3af' },
+            ticks: { color: '#9ca3af', maxRotation: 0 },
           },
           y: {
             beginAtZero: true,
-            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+            grid: { color: 'rgba(100, 116, 139, 0.12)' },
             ticks: {
               color: '#9ca3af',
               callback: (tickValue) => `₹${Math.round(Number(tickValue) / 1000)}k`,
@@ -164,55 +165,83 @@ function RevenueChart() {
     return () => {
       chart.destroy()
     }
-  }, [chartData, chartLoading])
+  }, [derived, paymentsLoading])
+
+  const growthPositive = derived.growth != null && derived.growth >= 0
 
   return (
-    <section className="rounded-lg border border-gray-800 bg-gray-900 p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-white">Monthly revenue</h2>
-
-        <div className="inline-flex rounded-md border border-gray-700 p-0.5 text-xs font-medium">
-          {['6m', '12m'].map((r) => (
-            <button
-              key={r}
-              type="button"
-              aria-pressed={range === r}
-              onClick={() => setRange(r)}
-              className={`rounded-sm px-2 py-1 transition ${
-                range === r ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {r === '6m' ? '6M' : '12M'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mt-4 h-64">
-        {chartLoading ? (
-          <div className="h-full animate-pulse rounded bg-gray-800" />
-        ) : (
-          <canvas ref={canvasRef} role="img" aria-label="Monthly revenue, line chart" />
+    <section ref={cardRef} className="relative rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:p-6 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-700">
+        <dl>
+          <dt className="text-sm text-gray-500 dark:text-gray-400">Revenue</dt>
+          <dd className="text-2xl font-semibold text-gray-900 dark:text-gray-50">{formatCurrency(derived.total)}</dd>
+        </dl>
+        {derived.growth != null && (
+          <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-medium ${
+            growthPositive
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+              : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+          }`}>
+            {growthPositive ? <TrendingUp className="me-1 h-4 w-4" /> : <TrendingDown className="me-1 h-4 w-4" />}
+            Growth {Math.abs(derived.growth).toFixed(1)}%
+          </span>
         )}
       </div>
 
-      <table className="sr-only" aria-live="polite">
-        <caption>Monthly revenue by month</caption>
-        <thead>
-          <tr>
-            <th scope="col">Month</th>
-            <th scope="col">Revenue</th>
-          </tr>
-        </thead>
-        <tbody>
-          {chartData.labels.map((label, i) => (
-            <tr key={label}>
-              <th scope="row">{label}</th>
-              <td>{formatCurrency(chartData.values[i])}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="grid grid-cols-2 py-3">
+        <dl>
+          <dt className="text-sm text-gray-500 dark:text-gray-400">Subscriptions</dt>
+          <dd className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">+{formatCurrency(derived.subscriptions)}</dd>
+        </dl>
+        <dl>
+          <dt className="text-sm text-gray-500 dark:text-gray-400">Fines</dt>
+          <dd className="text-lg font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(derived.fines)}</dd>
+        </dl>
+      </div>
+
+      <div className="h-48">
+        {paymentsLoading ? (
+          <div className="h-full animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+        ) : (
+          <canvas ref={canvasRef} role="img" aria-label="Revenue by day, bar chart" />
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between pt-4 md:pt-6">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setRangeOpen(!rangeOpen)}
+              className="inline-flex items-center text-center text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+            >
+              {range}
+              <ChevronDown className="ms-1.5 h-4 w-4" />
+            </button>
+            {rangeOpen && (
+              <div className="absolute end-0 top-full z-10 mt-2 w-44 rounded-xl border border-gray-100 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <ul className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  {RANGE_OPTIONS.map((r) => (
+                    <li key={r}>
+                      <button
+                        type="button"
+                        onClick={() => { setRange(r); setRangeOpen(false) }}
+                        className="inline-flex w-full items-center rounded-lg p-2 text-left transition hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-50"
+                      >
+                        {r}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <Link to="/report" className="inline-flex items-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-primary-600 transition hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:text-primary-400 dark:hover:bg-gray-800">
+            Revenue Report
+            <ArrowRight className="-me-0.5 ms-1.5 h-4 w-4" />
+          </Link>
+        </div>
+      </div>
     </section>
   )
 }
@@ -252,9 +281,206 @@ function MostBorrowedSection({ data }) {
   )
 }
 
+const CIRCULATION_SEGMENTS = [
+  { key: 'available', label: 'Available', color: '#10b981' },
+  { key: 'onLoan', label: 'On Loan', color: '#f59e0b' },
+  { key: 'overdue', label: 'Overdue', color: '#f43f5e' },
+]
+
+const RANGE_OPTIONS = ['Yesterday', 'Today', 'Last 7 days', 'Last 30 days', 'Last 90 days']
+
+function CirculationCard({ data }) {
+  const cardRef = useRef(null)
+  const canvasRef = useRef(null)
+  const [visible, setVisible] = useState({ available: true, onLoan: true, overdue: true })
+  const [range, setRange] = useState('Last 7 days')
+  const [rangeOpen, setRangeOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
+  const [downloadTip, setDownloadTip] = useState(false)
+
+  const { segments, total } = useMemo(() => {
+    const borrowed = Math.max(0, Number(data?.borrowedCopies ?? 0))
+    const overdue = Math.max(0, Number(data?.overdueBooks ?? 0))
+    const available = Math.max(0, Number(data?.availableCopies ?? 0))
+    const onLoan = Math.max(0, borrowed - overdue)
+    const values = { available, onLoan, overdue }
+    return {
+      total: available + borrowed,
+      segments: CIRCULATION_SEGMENTS.map((s) => ({ ...s, value: values[s.key] })).filter(
+        (s) => visible[s.key] && s.value > 0
+      ),
+    }
+  }, [data, visible])
+
+  useEffect(() => {
+    const handle = (e) => {
+      if (cardRef.current && !cardRef.current.contains(e.target)) {
+        setRangeOpen(false)
+        setInfoOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const chart = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: segments.map((s) => s.label),
+        datasets: [
+          {
+            data: segments.map((s) => s.value),
+            backgroundColor: segments.map((s) => s.color),
+            borderColor: '#ffffff',
+            borderWidth: 2,
+            hoverOffset: 6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (item) => ` ${item.label}: ${item.parsed} copies`,
+            },
+          },
+        },
+      },
+    })
+    return () => {
+      chart.destroy()
+    }
+  }, [segments])
+
+  return (
+    <section ref={cardRef} className="relative rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:p-6 dark:border-gray-800 dark:bg-gray-900">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center">
+          <h5 className="me-1 text-xl font-semibold text-gray-900 dark:text-gray-50">Book Circulation</h5>
+          <button
+            type="button"
+            onClick={() => setInfoOpen(!infoOpen)}
+            aria-expanded={infoOpen}
+            aria-label="About this chart"
+            className="ms-1 cursor-pointer text-gray-400 transition hover:text-gray-900 dark:hover:text-gray-50"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="relative">
+          <button
+            type="button"
+            onMouseEnter={() => setDownloadTip(true)}
+            onMouseLeave={() => setDownloadTip(false)}
+            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-transparent text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-50 sm:inline-flex"
+            aria-label="Download data"
+          >
+            <Download className="h-5 w-5" />
+          </button>
+          {downloadTip && (
+            <div className="absolute end-0 top-full z-10 mt-2 whitespace-nowrap rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white shadow-sm dark:bg-gray-100 dark:text-gray-900">
+              Download CSV
+            </div>
+          )}
+        </div>
+      </div>
+
+      {infoOpen && (
+        <div className="absolute start-4 top-16 z-10 w-72 rounded-xl border border-gray-100 bg-white p-3 text-sm text-gray-600 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+          <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-50">About this chart</h3>
+          <p className="mb-4">Breakdown of the library catalog: copies available on shelves, currently on loan, and overdue. Toggle the filters to show or hide each segment.</p>
+          <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-50">Definition</h3>
+          <p className="mb-4">Available copies are on the shelves, on-loan copies are issued to members, and overdue copies are on-loan copies past their due date.</p>
+          <Link to="/report" onClick={() => setInfoOpen(false)} className="inline-flex items-center font-medium text-primary-600 hover:underline dark:text-primary-400">
+            Read more
+            <ArrowRight className="ms-1 h-4 w-4" />
+          </Link>
+        </div>
+      )}
+
+      <div className="flex flex-wrap">
+        {CIRCULATION_SEGMENTS.map((s) => (
+          <div key={s.key} className="me-4 flex items-center">
+            <input
+              id={`circ-${s.key}`}
+              type="checkbox"
+              checked={visible[s.key]}
+              onChange={() => setVisible((prev) => ({ ...prev, [s.key]: !prev[s.key] }))}
+              className="h-4 w-4 rounded border border-gray-300 bg-white accent-primary-600 focus:ring-2 focus:ring-primary-300 dark:border-gray-600 dark:bg-gray-800"
+            />
+            <label htmlFor={`circ-${s.key}`} className="ms-2 select-none text-sm font-medium text-gray-900 dark:text-gray-50">
+              {s.label}
+            </label>
+          </div>
+        ))}
+      </div>
+
+      <div className="py-4">
+        <div className="relative mx-auto h-48">
+          {segments.length === 0 ? (
+            <p className="flex h-full items-center justify-center text-sm text-gray-400">Select a category to view</p>
+          ) : (
+            <canvas ref={canvasRef} role="img" aria-label="Circulation breakdown, donut chart" />
+          )}
+          {segments.length > 0 && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">{total}</p>
+                <p className="text-xs text-gray-500">copies</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between pt-4 md:pt-6">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setRangeOpen(!rangeOpen)}
+              className="inline-flex items-center text-center text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+            >
+              {range}
+              <ChevronDown className="ms-1.5 h-4 w-4" />
+            </button>
+            {rangeOpen && (
+              <div className="absolute end-0 top-full z-10 mt-2 w-44 rounded-xl border border-gray-100 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <ul className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  {RANGE_OPTIONS.map((r) => (
+                    <li key={r}>
+                      <button
+                        type="button"
+                        onClick={() => { setRange(r); setRangeOpen(false) }}
+                        className="inline-flex w-full items-center rounded-lg p-2 text-left transition hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-50"
+                      >
+                        {r}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <Link to="/report" className="inline-flex items-center rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-primary-600 transition hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-gray-100 dark:text-primary-400 dark:hover:bg-gray-800">
+            Full analysis
+            <ArrowRight className="-me-0.5 ms-1.5 h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function Analytics() {
   const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
@@ -262,8 +488,6 @@ export default function Analytics() {
       setData(res)
     } catch (e) {
       toast.error(getApiErrorMessage(e))
-    } finally {
-      setLoading(false)
     }
   }, [])
 
@@ -272,7 +496,6 @@ export default function Analytics() {
       load()
     })()
     const onRefresh = () => {
-      setLoading(true)
       load()
     }
     window.addEventListener('dashboard:refresh', onRefresh)
@@ -290,21 +513,15 @@ export default function Analytics() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Admin Analytics</h1>
           <p className="text-sm text-gray-500">Library performance dashboard</p>
         </div>
-        <Button variant="secondary" type="button" icon={RefreshCw} onClick={load} loading={loading}>
+        <Button variant="secondary" type="button" icon={RefreshCw} onClick={load}>
           Refresh
         </Button>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {loading
-          ? METRICS.map((_, i) => <CardSkeleton key={i} />)
-          : METRICS.map((m) => (
-              <MetricCard key={m.key} metric={m} value={data?.[m.key]} loading={false} />
-            ))
-        }
+      <section className="grid gap-4 lg:grid-cols-2">
+        <RevenueReportCard />
+        <CirculationCard data={data} />
       </section>
-
-      <RevenueChart />
 
       <MostBorrowedSection data={data} />
     </div>

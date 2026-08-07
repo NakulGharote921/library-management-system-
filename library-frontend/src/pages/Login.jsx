@@ -1,24 +1,45 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { motion } from 'motion/react'
+import {
+  ArrowRight, Bell, BookOpen, CalendarDays, Eye, EyeOff, Library, Lock, Mail, ShieldCheck, Sparkles,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import { login, clearError, selectAuth } from '../store/authSlice.js'
-import { authService } from '../services/authService.js'
-import { KODNEST_LOGO_URL } from '../constants/branding.js'
+import { AuthHeroPanel, BackgroundDecor, SocialButtons, useHomeStats } from '../components/auth/AuthShared.jsx'
+
+const FEATURES = [
+  { icon: BookOpen, label: 'Borrow Books' },
+  { icon: CalendarDays, label: 'Smart Reservations' },
+  { icon: Bell, label: 'Real-time Notifications' },
+  { icon: ShieldCheck, label: 'Flexible Plans' },
+]
+
+const INPUT_CLASS =
+  'h-12 w-full rounded-2xl border bg-white/80 pl-11 pr-4 text-sm text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:ring-4 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500'
+
+function redirectPath(role) {
+  if (role === 'ADMIN') return '/admin/dashboard'
+  if (role === 'MEMBER') return '/member/dashboard'
+  return '/'
+}
 
 export default function Login() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { isAuthenticated, loading, error } = useSelector(selectAuth)
-  const [email, setEmail] = useState('')
+  const { isAuthenticated, loading, error, user } = useSelector(selectAuth)
+
+  const [email, setEmail] = useState(() => localStorage.getItem('rememberedEmail') || '')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [remember, setRemember] = useState(Boolean(localStorage.getItem('rememberedEmail')))
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [signedIn, setSignedIn] = useState(false)
 
-  useEffect(() => {
-    if (isAuthenticated) navigate('/', { replace: true })
-  }, [isAuthenticated, navigate])
+  const { stats, loading: statsLoading } = useHomeStats()
+  const prevLoading = useRef(loading)
 
   useEffect(() => {
     if (searchParams.get('error')) {
@@ -33,103 +54,228 @@ export default function Login() {
     }
   }, [error, dispatch])
 
+  useEffect(() => {
+    if (isAuthenticated && !signedIn) {
+      navigate(redirectPath(user?.role), { replace: true })
+    }
+  }, [isAuthenticated, signedIn, user, navigate])
+
+  useEffect(() => {
+    if (prevLoading.current && !loading && isAuthenticated) {
+      setSignedIn(true)
+    }
+    prevLoading.current = loading
+  }, [loading, isAuthenticated])
+
+  useEffect(() => {
+    if (isAuthenticated && signedIn) {
+      const timer = setTimeout(() => navigate(redirectPath(user?.role), { replace: true }), 800)
+      return () => clearTimeout(timer)
+    }
+  }, [isAuthenticated, signedIn, user, navigate])
+
+  const validate = () => {
+    const errs = {}
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!email.trim()) errs.email = 'Email is required'
+    else if (!emailPattern.test(email.trim())) errs.email = 'Enter a valid email address'
+    if (!password) errs.password = 'Password is required'
+    setFieldErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!email.trim() || !password.trim()) {
-      toast.error('Email and password are required')
-      return
-    }
+    if (!validate()) return
+    if (remember) localStorage.setItem('rememberedEmail', email.trim())
+    else localStorage.removeItem('rememberedEmail')
     dispatch(login({ email: email.trim(), password }))
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-600 via-primary-700 to-sky-800 px-4">
-      <div className="w-full max-w-md animate-fadeIn">
-        <div className="rounded-3xl bg-white p-8 shadow-2xl dark:bg-gray-900">
-          <div className="mb-8 text-center">
-            <img src={KODNEST_LOGO_URL} alt="KodNest" className="mx-auto h-10 w-auto" />
-            <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-50">Library Management</h1>
-            <p className="mt-1 text-sm text-gray-500">Sign in to your account</p>
-          </div>
+  const handleForgotPassword = () => {
+    toast('Password reset is coming soon.', { icon: '🔐' })
+  }
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@university.edu"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-3 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-gray-800 dark:bg-gray-800/60"
-                  autoFocus
-                />
-              </div>
+  const handleGithub = () => {
+    toast('GitHub sign-in is not configured yet. Use Google instead.', { icon: 'ℹ️' })
+  }
+
+  return (
+    <div className="relative flex min-h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+      <BackgroundDecor />
+
+      <div className="relative z-10 grid w-full lg:grid-cols-2">
+        <AuthHeroPanel
+          title="Welcome to KodNest"
+          subtitle="Borrow, Read, Learn and Grow with the smartest digital library."
+          features={FEATURES}
+          stats={stats}
+          statsLoading={statsLoading}
+        />
+
+        {/* Right form panel */}
+        <div className="relative flex items-center justify-center px-4 py-10 sm:px-8 lg:py-12">
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="w-full max-w-[460px] rounded-[28px] border border-white/50 bg-white/70 p-8 shadow-2xl shadow-primary-900/10 backdrop-blur-xl sm:p-10 dark:border-white/10 dark:bg-[#111827]/70 dark:shadow-black/30"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-sky-500 text-white shadow-lg shadow-primary-600/30">
+                <Library className="h-5 w-5" />
+              </span>
+              <span className="text-2xl font-extrabold text-gray-900 dark:text-white">
+                <b className="text-yellow-500">K</b>odNest
+              </span>
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-10 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-gray-800 dark:bg-gray-800/60"
-                />
+            <h2 className="mt-8 text-2xl font-bold text-gray-900 dark:text-white sm:text-3xl">Welcome Back</h2>
+            <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">Sign in to continue your library journey.</p>
+
+            <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-5">
+              <div>
+                <label htmlFor="login-email" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    id="login-email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      if (fieldErrors.email) setFieldErrors((f) => ({ ...f, email: '' }))
+                    }}
+                    className={`${INPUT_CLASS} ${
+                      fieldErrors.email
+                        ? 'border-red-400 focus:border-red-400 focus:ring-red-400/10 dark:border-red-500'
+                        : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/15 dark:border-gray-700'
+                    }`}
+                    placeholder="you@university.edu"
+                    aria-invalid={!!fieldErrors.email}
+                    autoFocus
+                  />
+                </div>
+                {fieldErrors.email && <p className="mt-1.5 text-xs font-medium text-red-500">{fieldErrors.email}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="login-password" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    id="login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (fieldErrors.password) setFieldErrors((f) => ({ ...f, password: '' }))
+                    }}
+                    className={`${INPUT_CLASS} pr-12 ${
+                      fieldErrors.password
+                        ? 'border-red-400 focus:border-red-400 focus:ring-red-400/10 dark:border-red-500'
+                        : 'border-gray-200 focus:border-primary-500 focus:ring-primary-500/15 dark:border-gray-700'
+                    }`}
+                    placeholder="••••••••"
+                    aria-invalid={!!fieldErrors.password}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-200"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                {fieldErrors.password && <p className="mt-1.5 text-xs font-medium text-red-500">{fieldErrors.password}</p>}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="flex cursor-pointer select-none items-center gap-2.5 text-sm text-gray-600 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 bg-white text-primary-600 focus:ring-2 focus:ring-primary-500/30 focus:outline-none dark:border-gray-600 dark:bg-gray-800"
+                  />
+                  Remember me
+                </label>
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  onClick={handleForgotPassword}
+                  className="text-sm font-semibold text-primary-600 transition hover:text-primary-700 dark:text-primary-400"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  Forgot password?
                 </button>
               </div>
+
+              <div className="pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="group flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary-600/30 focus:outline-none focus:ring-4 focus:ring-primary-500/25 disabled:pointer-events-none disabled:opacity-60"
+                >
+                  {loading ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      Sign In
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+              <span className="text-xs font-medium uppercase tracking-widest text-gray-400">or</span>
+              <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:from-primary-700 hover:to-primary-800 disabled:opacity-60"
-            >
-              {loading ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <LogIn className="h-4 w-4" />
-              )}
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
+            <SocialButtons onGithub={handleGithub} />
 
-          <p className="mt-6 text-center text-sm text-gray-500">
-            Don&apos;t have an account?{' '}
-            <Link to="/register" className="font-semibold text-primary-600 hover:text-primary-700">
-              Create account
-            </Link>
-          </p>
-
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-            <span className="text-xs font-medium uppercase tracking-wide text-gray-400">or</span>
-            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-          </div>
-
-          <a
-            href={authService.googleLoginUrl()}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-200 dark:hover:bg-gray-800"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z" />
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z" />
-              <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z" />
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52Z" />
-            </svg>
-            Continue with Google
-          </a>
+            <p className="mt-7 text-center text-sm text-gray-500 dark:text-gray-400">
+              Don&apos;t have an account?{' '}
+              <Link to="/register" className="font-semibold text-primary-600 transition hover:text-primary-700 dark:text-primary-400">
+                Create Account
+              </Link>
+            </p>
+          </motion.div>
         </div>
       </div>
+
+      {signedIn && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/90 backdrop-blur-xl dark:bg-gray-950/90"
+        >
+          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-600 to-sky-500 text-white shadow-2xl shadow-primary-600/30">
+            <Sparkles className="h-8 w-8" />
+          </span>
+          <div className="mt-6 h-1.5 w-40 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: '100%' }}
+              transition={{ repeat: Infinity, duration: 0.8, ease: 'easeInOut' }}
+              className="h-full w-full rounded-full bg-primary-600"
+            />
+          </div>
+          <p className="mt-4 text-sm font-semibold text-gray-700 dark:text-gray-200">Signing you in...</p>
+        </motion.div>
+      )}
     </div>
   )
 }

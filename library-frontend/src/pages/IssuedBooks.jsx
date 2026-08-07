@@ -7,9 +7,11 @@ import {
   Printer, RefreshCw, Undo2, User,
 } from 'lucide-react'
 import Button from '../components/Button.jsx'
+import BookCover from '../components/BookCover.jsx'
 import PageSkeleton from '../components/PageSkeleton.jsx'
 import { getApiErrorMessage, issuedBookService } from '../services/api.js'
 import { selectUserRole, selectUser } from '../store/authSlice.js'
+import { coverOrSlug } from '../utils/bookCovers.js'
 
 const ADMIN_TABS = [
   { id: 'active', label: 'Active' },
@@ -19,8 +21,6 @@ const ADMIN_TABS = [
 ]
 
 const canReturnLoan = (tab) => tab === 'active' || tab === 'overdue'
-
-const COVER_FALLBACK = 'https://placehold.co/80x112?text=No+Cover'
 
 function daysOverdue(due) {
   if (!due) return 0
@@ -140,6 +140,66 @@ export default function IssuedBooks() {
       setRequestingId(null)
     }
   }
+
+  const renderActions = (issue, canAct) => (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {canAct && issue.issueStatus === 'ISSUED' && (
+        <>
+          {tab === 'overdue' && (
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                type="button"
+                icon={BellRing}
+                loading={remindingId === issue.id}
+                onClick={() => handleRemind(issue.id)}
+              >
+                Remind
+              </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                type="button"
+                icon={Coins}
+                loading={finingId === issue.id}
+                onClick={() => handleGenerateFine(issue.id)}
+              >
+                Fine
+              </Button>
+            </>
+          )}
+          <Button
+            size="sm"
+            variant="success"
+            type="button"
+            loading={returningId === issue.id}
+            onClick={() => handleReturn(issue.id)}
+          >
+            {issue.returnRequestedAt ? 'Approve Return' : 'Return book'}
+          </Button>
+        </>
+      )}
+      {issue.issueStatus === 'ISSUED' && isMember ? (
+        issue.returnRequestedAt ? (
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600">
+            <Undo2 className="h-3.5 w-3.5" /> Pending approval
+          </span>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            type="button"
+            icon={Undo2}
+            loading={requestingId === issue.id}
+            onClick={() => handleRequestReturn(issue.id)}
+          >
+            Request Return
+          </Button>
+        )
+      ) : null}
+    </div>
+  )
 
   const allSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id))
 
@@ -468,7 +528,7 @@ export default function IssuedBooks() {
               </div>
             </div>
           )}
-          <table className="w-full text-sm">
+          <table className="hidden w-full text-sm md:table">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
                 {showCheckboxCol && (
@@ -495,7 +555,7 @@ export default function IssuedBooks() {
               {filtered.map((issue) => {
                 const overdueDays = issue.issueStatus === 'ISSUED' ? daysOverdue(issue.dueDate) : 0
                 const highlight = overdueDays > 0 && issue.issueStatus === 'ISSUED'
-                const coverUrl = issue.bookCover || COVER_FALLBACK
+                const coverUrl = coverOrSlug(issue.bookCover, issue.bookTitle)
                 const isExpanded = expandedId === issue.id
                 const canAct = !isMember && !(tab === 'returned')
                 return (
@@ -518,14 +578,12 @@ export default function IssuedBooks() {
                       )}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl shadow-sm">
-                            <img
-                              src={coverUrl}
-                              alt={issue.bookTitle || 'Book cover'}
-                              className="h-full w-full object-cover"
-                              onError={(e) => { e.target.src = COVER_FALLBACK }}
-                            />
-                          </div>
+                          <BookCover
+                            src={coverUrl}
+                            alt={issue.bookTitle || 'Book cover'}
+                            className="h-12 w-12 shrink-0 rounded-xl shadow-sm"
+                            imgClassName="h-full w-full object-cover"
+                          />
                           <div>
                             <div className="font-bold text-gray-900 dark:text-gray-50">{issue.bookTitle}</div>
                             <div className="text-xs opacity-50">{issue.bookAuthor}</div>
@@ -579,7 +637,7 @@ export default function IssuedBooks() {
                         ) : null}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           <button
                             type="button"
                             onClick={() => setExpandedId(isExpanded ? null : issue.id)}
@@ -587,61 +645,7 @@ export default function IssuedBooks() {
                           >
                             {isExpanded ? 'Hide' : 'details'}
                           </button>
-                          {canAct && issue.issueStatus === 'ISSUED' && (
-                            <>
-                              {tab === 'overdue' && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    type="button"
-                                    icon={BellRing}
-                                    loading={remindingId === issue.id}
-                                    onClick={() => handleRemind(issue.id)}
-                                  >
-                                    Remind
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="danger"
-                                    type="button"
-                                    icon={Coins}
-                                    loading={finingId === issue.id}
-                                    onClick={() => handleGenerateFine(issue.id)}
-                                  >
-                                    Fine
-                                  </Button>
-                                </>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="success"
-                                type="button"
-                                loading={returningId === issue.id}
-                                onClick={() => handleReturn(issue.id)}
-                              >
-                                {issue.returnRequestedAt ? 'Approve Return' : 'Return book'}
-                              </Button>
-                            </>
-                          )}
-                          {issue.issueStatus === 'ISSUED' && isMember ? (
-                            issue.returnRequestedAt ? (
-                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600">
-                                <Undo2 className="h-3.5 w-3.5" /> Pending approval
-                              </span>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                type="button"
-                                icon={Undo2}
-                                loading={requestingId === issue.id}
-                                onClick={() => handleRequestReturn(issue.id)}
-                              >
-                                Request Return
-                              </Button>
-                            )
-                          ) : null}
+                          {renderActions(issue, canAct)}
                         </div>
                       </td>
                     </tr>
@@ -683,6 +687,127 @@ export default function IssuedBooks() {
               </tr>
             </tfoot>
           </table>
+
+          <div className="space-y-3 p-4 md:hidden">
+            {filtered.map((issue) => {
+              const overdueDays = issue.issueStatus === 'ISSUED' ? daysOverdue(issue.dueDate) : 0
+              const highlight = overdueDays > 0 && issue.issueStatus === 'ISSUED'
+              const coverUrl = coverOrSlug(issue.bookCover, issue.bookTitle)
+              const isExpanded = expandedId === issue.id
+              const canAct = !isMember && !(tab === 'returned')
+              return (
+                <div
+                  key={issue.id}
+                  className={`rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 ${
+                    highlight ? 'border-red-200 bg-red-50/40 dark:border-red-950 dark:bg-red-950/20' : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {showCheckboxCol && (
+                      <input
+                        type="checkbox"
+                        checked={selected.has(issue.id)}
+                        onChange={() => toggleSelect(issue.id)}
+                        aria-label={`Select ${issue.bookTitle || 'record'}`}
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                    )}
+                    <BookCover
+                      src={coverUrl}
+                      alt={issue.bookTitle || 'Book cover'}
+                      className="h-14 w-10 shrink-0 rounded-lg shadow-sm"
+                      imgClassName="h-full w-full object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-gray-900 dark:text-gray-50">{issue.bookTitle}</p>
+                      <p className="text-xs text-gray-500">{issue.bookAuthor}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            issue.issueStatus === 'RETURNED'
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-100'
+                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-100'
+                          }`}
+                        >
+                          {issue.issueStatus}
+                        </span>
+                        {issue.returnRequestedAt && issue.issueStatus === 'ISSUED' ? (
+                          <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                            Return Requested
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="font-semibold text-gray-400">Member</p>
+                      {!isMember ? (
+                        <>
+                          <p className="font-medium text-gray-900 dark:text-gray-50">{issue.memberName}</p>
+                          <p className="truncate text-gray-500">{issue.memberEmail}</p>
+                        </>
+                      ) : (
+                        <p className="text-gray-500">You</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-400">Dates</p>
+                      <p className="text-gray-600 dark:text-gray-300">Issued {issue.issueDate}</p>
+                      <p className="text-gray-600 dark:text-gray-300">Due {issue.dueDate}</p>
+                    </div>
+                  </div>
+                  {issue.returnDate ? (
+                    <p className="mt-2 text-xs text-emerald-600">Returned {issue.returnDate}</p>
+                  ) : null}
+                  {issue.returnRequestedAt && !issue.returnDate ? (
+                    <p className="mt-1 text-xs font-semibold text-amber-600">Return requested {issue.returnRequestedAt}</p>
+                  ) : null}
+                  {highlight ? (
+                    <p className="mt-1 text-xs font-semibold text-red-600">{overdueDays} days overdue</p>
+                  ) : null}
+                  {issue.issuedByName ? (
+                    <p className="mt-1 text-xs text-gray-400">
+                      <User className="mr-1 inline h-3 w-3" />
+                      {issue.issuedByName}
+                    </p>
+                  ) : null}
+
+                  {isExpanded ? (
+                    <div className="mt-3 grid gap-1.5 rounded-xl bg-gray-50 p-3 text-xs text-gray-500 dark:bg-gray-800/40 sm:grid-cols-3">
+                      {issue.bookIsbn ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Hash className="h-3 w-3" /> ISBN: {issue.bookIsbn}
+                        </span>
+                      ) : null}
+                      {issue.bookCategory ? (
+                        <span className="inline-flex items-center gap-1">
+                          <BookMarked className="h-3 w-3" /> {issue.bookCategory}
+                        </span>
+                      ) : null}
+                      {issue.bookShelf ? (
+                        <span className="inline-flex items-center gap-1">
+                          <BookOpen className="h-3 w-3" /> Shelf: {issue.bookShelf}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isExpanded ? null : issue.id)}
+                      className="rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-primary-700 dark:hover:bg-gray-800 dark:hover:text-primary-300"
+                    >
+                      {isExpanded ? 'Hide details' : 'Details'}
+                    </button>
+                    {renderActions(issue, canAct)}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

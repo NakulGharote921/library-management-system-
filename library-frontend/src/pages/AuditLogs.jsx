@@ -86,7 +86,8 @@ export default function AuditLogs() {
               <p className="mt-1 text-sm text-gray-500">Actions like approving or rejecting borrow requests are recorded here.</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <>
+              <table className="hidden w-full text-sm md:table">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800">
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">Action</th>
@@ -119,6 +120,34 @@ export default function AuditLogs() {
                 ))}
               </tbody>
             </table>
+            <div className="space-y-3 p-4 md:hidden">
+              {filtered.map((log) => (
+                <div key={log.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${actionTone(log.action)}`}>
+                      {log.action}
+                    </span>
+                    <span className="shrink-0 text-xs text-gray-500">{formatDateTime(log.createdAt)}</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p className="font-semibold text-gray-400">Actor</p>
+                      <p className="text-gray-800 dark:text-gray-200">{log.actorName || log.actorEmail || 'System'}</p>
+                      {log.actorEmail && <p className="truncate text-gray-400">{log.actorEmail}</p>}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-400">Target</p>
+                      <p className="text-gray-600 dark:text-gray-400">{log.entityType}{log.entityId ? ` #${log.entityId}` : ''}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <p className="font-semibold text-gray-400">Details</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{log.details || '—'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </div>
       </div>

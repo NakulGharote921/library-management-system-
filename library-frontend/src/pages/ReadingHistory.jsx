@@ -9,12 +9,15 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
+import BookCover from '../components/BookCover.jsx'
+import CategorySearchBar from '../components/CategorySearchBar.jsx'
 import Modal from '../components/Modal.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import {
   borrowBook, getApiErrorMessage, getBookById, readingHistoryService,
   reservationService, wishlistService,
 } from '../services/api.js'
+import { coverOrSlug } from '../utils/bookCovers.js'
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -223,7 +226,7 @@ function GenreChart({ labels, values }) {
   return <div className="h-64"><canvas ref={ref} aria-label="Favorite genres chart" /></div>
 }
 
-function BookCover({ entry, onClick }) {
+function HistoryCover({ entry, onClick }) {
   return (
     <button
       type="button"
@@ -231,13 +234,12 @@ function BookCover({ entry, onClick }) {
       aria-label={`View details of ${entry.bookTitle}`}
       className="h-24 w-[4.5rem] flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200 transition hover:ring-primary-400 dark:bg-gray-800 dark:ring-gray-700"
     >
-      {entry.bookCoverImageUrl ? (
-        <img src={entry.bookCoverImageUrl} alt={entry.bookTitle} className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full items-center justify-center">
-          <BookOpen className="h-7 w-7 text-gray-400" />
-        </div>
-      )}
+      <BookCover
+        src={coverOrSlug(entry.bookCoverImageUrl, entry.bookTitle)}
+        alt={entry.bookTitle}
+        className="h-full w-full"
+        imgClassName="h-full w-full object-cover"
+      />
     </button>
   )
 }
@@ -249,7 +251,7 @@ function HistoryCard({ entry, actionId, onDetails, onBorrowAgain, onWishlist, on
   return (
     <article className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-col gap-4 sm:flex-row">
-        <BookCover entry={entry} onClick={onDetails} />
+        <HistoryCover entry={entry} onClick={onDetails} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -365,7 +367,6 @@ export default function ReadingHistory() {
   const navigate = useNavigate()
   const [history, setHistory] = useState([])
   const [stats, setStats] = useState(null)
-  const [recommendations, setRecommendations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [actionId, setActionId] = useState(null)
@@ -392,14 +393,12 @@ export default function ReadingHistory() {
     setLoading(true)
     setError(null)
     try {
-      const [data, statsData, recs] = await Promise.all([
+      const [data, statsData] = await Promise.all([
         readingHistoryService.getMy(),
         readingHistoryService.getStats(),
-        readingHistoryService.getRecommendations(),
       ])
       setHistory(data)
       setStats(statsData)
-      setRecommendations(recs)
     } catch (e) {
       setError(e)
       toast.error(getApiErrorMessage(e))
@@ -413,13 +412,11 @@ export default function ReadingHistory() {
     Promise.all([
       readingHistoryService.getMy(),
       readingHistoryService.getStats(),
-      readingHistoryService.getRecommendations(),
     ])
-      .then(([data, statsData, recs]) => {
+      .then(([data, statsData]) => {
         if (cancelled) return
         setHistory(data)
         setStats(statsData)
-        setRecommendations(recs)
       })
       .catch((e) => {
         if (cancelled) return
@@ -491,11 +488,8 @@ export default function ReadingHistory() {
     if (fines.length) {
       list.push({ key: 'fine', type: 'warning', icon: CircleDollarSign, title: 'Outstanding Fines', text: `You have ${fines.length} unpaid fine${fines.length > 1 ? 's' : ''}. Please clear them from the Payments page.` })
     }
-    if (recommendations.length) {
-      list.push({ key: 'rec', type: 'info', icon: Sparkles, title: 'Recommended Books', text: `${recommendations.length} new recommendations based on your reading history.` })
-    }
     return list
-  }, [history, recommendations])
+  }, [history])
 
   const monthly = useMemo(() => {
     const map = new Map()
@@ -639,9 +633,9 @@ export default function ReadingHistory() {
   const statCards = [
     { label: 'Total Books Read', value: stats?.totalBooksRead ?? 0, icon: BookMarked, color: 'bg-primary-50 text-primary-600 dark:bg-primary-950 dark:text-primary-300' },
     { label: 'Currently Borrowed', value: stats?.currentlyBorrowed ?? 0, icon: Clock, color: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300' },
-    { label: 'Returned Books', value: stats?.returnedBooks ?? 0, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300' },
+    { label: 'Books Returned', value: stats?.returnedBooks ?? 0, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300' },
     { label: 'Overdue Returns', value: stats?.overdueReturns ?? 0, icon: AlertTriangle, color: 'bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-300' },
-    { label: 'Favorite Genre', value: stats?.favoriteGenre || '—', icon: Award, color: 'bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-300' },
+    { label: 'Favorite Genre', value: stats?.favoriteGenre || 'No Favorite Yet', icon: Award, color: 'bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-300' },
     { label: 'Total Reading Days', value: stats?.totalReadingDays ?? 0, icon: Calendar, color: 'bg-teal-50 text-teal-600 dark:bg-teal-950 dark:text-teal-300' },
   ]
 
@@ -652,8 +646,8 @@ export default function ReadingHistory() {
     { label: 'Total Fine Paid', value: fmtMoney(stats?.totalFinePaid) || '₹0.00', icon: CircleDollarSign, color: 'bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-300' },
   ]
 
-  const inputCls = 'w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-400/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100'
-  const selectCls = 'rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-400/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'
+  const inputCls = 'h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-900 placeholder-gray-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-400/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100'
+  const selectCls = 'h-12 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-400/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300'
 
   return (
     <>
@@ -664,13 +658,13 @@ export default function ReadingHistory() {
             <p className="mt-0.5 text-sm text-gray-500">View your complete borrowing history, reading progress, and returned books.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" icon={Download} onClick={() => exportCsv(filtered, 'reading-history.csv')} disabled={!filtered.length}>
+            <Button variant="secondary" size="sm" icon={Download} onClick={() => exportCsv(filtered, 'reading-history.csv')} disabled={!filtered.length} className="h-11 min-w-[140px]">
               Download / Excel
             </Button>
-            <Button variant="secondary" size="sm" icon={Printer} onClick={() => window.print()} disabled={!filtered.length}>
+            <Button variant="secondary" size="sm" icon={Printer} onClick={() => window.print()} disabled={!filtered.length} className="h-11 min-w-[140px]">
               Print / PDF
             </Button>
-            <Button variant="secondary" size="sm" icon={RefreshCw} onClick={load} loading={loading}>
+            <Button variant="secondary" size="sm" icon={RefreshCw} onClick={load} loading={loading} className="h-11 min-w-[140px]">
               Refresh
             </Button>
           </div>
@@ -699,58 +693,79 @@ export default function ReadingHistory() {
         )}
 
         {stats && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             {statCards.map((s) => (
               <div key={s.label} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${s.color}`}>
-                  <s.icon className="h-5 w-5" />
+                <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${s.color}`}>
+                  <s.icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-lg font-bold text-gray-900 dark:text-gray-50" title={String(s.value)}>{s.value}</p>
-                  <p className="truncate text-xs text-gray-500">{s.label}</p>
+                  <p className="truncate text-xs text-gray-500" title={s.label}>{s.label}</p>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative min-w-[220px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Search by book title..." value={filters.keyword} onChange={setFilter('keyword')} className={`${inputCls} pl-9`} aria-label="Search by book title" />
-            </div>
-            <div className="relative min-w-[180px] flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <input type="text" placeholder="Search by author..." value={filters.author} onChange={setFilter('author')} className={`${inputCls} pl-9`} aria-label="Search by author" />
-            </div>
-            <select value={filters.genre} onChange={setFilter('genre')} className={selectCls} aria-label="Genre filter">
-              <option value="">All Genres</option>
-              {genres.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <select value={filters.status} onChange={setFilter('status')} className={selectCls} aria-label="Reading status filter">
-              <option value="">All Status</option>
-              {Object.entries(STATUS_META).map(([key, m]) => <option key={key} value={key}>{m.label}</option>)}
-            </select>
-            <select value={filters.sort} onChange={setFilter('sort')} className={selectCls} aria-label="Sort order">
-              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-50">Filters</h2>
             {hasActiveFilters && (
-              <Button variant="secondary" size="sm" icon={FilterX} onClick={clearFilters}>Clear</Button>
+              <Button variant="secondary" size="sm" icon={FilterX} onClick={clearFilters}>Clear Filters</Button>
             )}
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium whitespace-nowrap text-gray-500">Borrow:</span>
-              <input type="date" value={filters.borrowFrom} onChange={setFilter('borrowFrom')} className={inputCls} aria-label="Borrow date from" />
-              <span className="text-xs text-gray-400">to</span>
-              <input type="date" value={filters.borrowTo} onChange={setFilter('borrowTo')} className={inputCls} aria-label="Borrow date to" />
+          <div className="mt-4 grid grid-cols-12 gap-4">
+            <div className="col-span-12">
+              <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">Search Book</label>
+              <CategorySearchBar
+                categories={genres.map((g) => ({ value: g, label: g }))}
+                selectedCategory={filters.genre}
+                onCategoryChange={(v) => { setPage(1); setFilters((f) => ({ ...f, genre: v })) }}
+                value={filters.keyword}
+                onValueChange={(v) => { setPage(1); setFilters((f) => ({ ...f, keyword: v })) }}
+                placeholder="Search by book title..."
+                ariaLabel="Search by book title"
+                className="max-w-2xl"
+              />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium whitespace-nowrap text-gray-500">Return:</span>
-              <input type="date" value={filters.returnFrom} onChange={setFilter('returnFrom')} className={inputCls} aria-label="Return date from" />
-              <span className="text-xs text-gray-400">to</span>
-              <input type="date" value={filters.returnTo} onChange={setFilter('returnTo')} className={inputCls} aria-label="Return date to" />
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">Search Author</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input type="text" placeholder="Search by author..." value={filters.author} onChange={setFilter('author')} className={`${inputCls} pl-9`} aria-label="Search by author" />
+              </div>
+            </div>
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">Status</label>
+              <select value={filters.status} onChange={setFilter('status')} className={`${selectCls} w-full`} aria-label="Reading status filter">
+                <option value="">All Status</option>
+                {Object.entries(STATUS_META).map(([key, m]) => <option key={key} value={key}>{m.label}</option>)}
+              </select>
+            </div>
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">Sort</label>
+              <select value={filters.sort} onChange={setFilter('sort')} className={`${selectCls} w-full`} aria-label="Sort order">
+                {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">Borrow Date</label>
+              <div className="flex items-center gap-2">
+                <input type="date" value={filters.borrowFrom} onChange={setFilter('borrowFrom')} className={inputCls} aria-label="Borrow date from" />
+                <span className="flex-shrink-0 text-xs font-medium text-gray-400">to</span>
+                <input type="date" value={filters.borrowTo} onChange={setFilter('borrowTo')} className={inputCls} aria-label="Borrow date to" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-500 dark:text-gray-400">Return Date</label>
+              <div className="flex items-center gap-2">
+                <input type="date" value={filters.returnFrom} onChange={setFilter('returnFrom')} className={inputCls} aria-label="Return date from" />
+                <span className="flex-shrink-0 text-xs font-medium text-gray-400">to</span>
+                <input type="date" value={filters.returnTo} onChange={setFilter('returnTo')} className={inputCls} aria-label="Return date to" />
+              </div>
             </div>
           </div>
         </div>
@@ -767,20 +782,22 @@ export default function ReadingHistory() {
             <Button className="mt-5" icon={RefreshCw} onClick={load}>Try Again</Button>
           </div>
         ) : history.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-              <BookOpen className="h-10 w-10 text-gray-400" />
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-20 text-center shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 dark:bg-primary-950">
+              <BookOpen className="h-8 w-8 text-primary-600 dark:text-primary-300" />
             </div>
-            <h3 className="mt-5 text-lg font-semibold text-gray-700 dark:text-gray-300">No Reading History Yet</h3>
-            <p className="mt-1 text-sm text-gray-500">You haven't borrowed any books yet. Start exploring the library and borrow your first book.</p>
-            <Button className="mt-5" onClick={() => navigate('/books')}>Browse Books</Button>
+            <h3 className="mt-5 text-lg font-semibold text-gray-900 dark:text-gray-50">No Reading History Yet</h3>
+            <p className="mt-1 max-w-sm text-sm text-gray-500">You haven't borrowed any books yet. Start exploring the library and borrow your first book.</p>
+            <Button className="mt-6" onClick={() => navigate('/books')}>Browse Books</Button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Search className="h-14 w-14 text-gray-300 dark:text-gray-600" />
-            <h3 className="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-300">No records match your filters</h3>
-            <p className="mt-1 text-sm text-gray-500">Try adjusting your search, filters, or date ranges.</p>
-            <Button className="mt-5" variant="secondary" icon={FilterX} onClick={clearFilters}>Clear Filters</Button>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-20 text-center shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
+              <Search className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="mt-5 text-lg font-semibold text-gray-900 dark:text-gray-50">No records match your filters</h3>
+            <p className="mt-1 max-w-sm text-sm text-gray-500">Try adjusting your search, filters, or date ranges.</p>
+            <Button className="mt-6" variant="secondary" icon={FilterX} onClick={clearFilters}>Clear Filters</Button>
           </div>
         ) : (
           <>
@@ -867,38 +884,6 @@ export default function ReadingHistory() {
             </div>
           </SectionCard>
         )}
-
-        {recommendations.length > 0 && (
-          <SectionCard icon={Sparkles} title="AI Recommendations" subtitle="Because you borrowed books, you may also like these">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {recommendations.map((rec, idx) => (
-                <div
-                  key={idx}
-                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 transition hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 dark:hover:border-primary-800 dark:hover:bg-primary-950"
-                  onClick={() => navigate(`/books/${rec.bookId}`)}
-                >
-                  <div className="h-16 w-12 flex-shrink-0 overflow-hidden rounded bg-gray-200 dark:bg-gray-700">
-                    {rec.coverImageUrl ? (
-                      <img src={rec.coverImageUrl} alt={rec.title} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <BookOpen className="h-5 w-5 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{rec.title}</p>
-                    <p className="truncate text-xs text-gray-500">{rec.author}</p>
-                    <div className="mt-1 flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      <span className="text-xs text-gray-500">{Number(rec.averageRating || 0).toFixed(1)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-        )}
       </div>
 
       <div className="hidden print:block">
@@ -940,15 +925,12 @@ export default function ReadingHistory() {
         {details && (
           <div className="space-y-5">
             <div className="flex flex-col gap-4 sm:flex-row">
-              <div className="h-40 w-28 flex-shrink-0 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-                {details.bookCoverImageUrl ? (
-                  <img src={details.bookCoverImageUrl} alt={details.bookTitle} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <BookOpen className="h-10 w-10 text-gray-400" />
-                  </div>
-                )}
-              </div>
+              <BookCover
+                src={coverOrSlug(details.bookCoverImageUrl, details.bookTitle)}
+                alt={details.bookTitle}
+                className="h-40 w-28 flex-shrink-0 rounded-xl ring-1 ring-gray-200 dark:ring-gray-700"
+                imgClassName="h-full w-full object-cover"
+              />
               <div className="min-w-0 flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{details.bookTitle}</h3>
                 <p className="text-sm text-gray-500">by {details.bookAuthor}</p>
@@ -1058,7 +1040,7 @@ export default function ReadingHistory() {
             />
           </div>
         </div>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={() => setReviewTarget(null)}>Cancel</Button>
           <Button onClick={saveReview} loading={reviewSaving} disabled={!reviewRating && !reviewText.trim()}>
             Save Review

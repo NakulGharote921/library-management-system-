@@ -6,15 +6,18 @@ import {
   Tag, MapPin, Timer,
   Hash, Mail, User, ThumbsUp, ExternalLink, TrendingUp,
   Download, ArrowUpDown, Crown, CalendarClock, Users, BarChart3,
-  Search,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
 import { selectUserRole } from '../store/authSlice.js'
 import Button from '../components/Button.jsx'
+import BookCover from '../components/BookCover.jsx'
+import CategorySearchBar from '../components/CategorySearchBar.jsx'
 import Modal from '../components/Modal.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { getApiErrorMessage, reservationService, borrowBook, reserveBook } from '../services/api.js'
+import { useCategories } from '../store/CategoryContext.js'
+import { coverOrSlug } from '../utils/bookCovers.js'
 
 const STATUS_LABEL = {
   WAITING: 'Waiting',
@@ -93,6 +96,7 @@ export default function Reservations() {
   const [sortBy, setSortBy] = useState('reservationDate')
   const [sortOrder, setSortOrder] = useState('desc')
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [overridePos, setOverridePos] = useState('')
   const [overriding, setOverriding] = useState(false)
   const mountedRef = useRef(true)
@@ -177,6 +181,12 @@ export default function Reservations() {
     setDetailReservation(null)
   }, [])
 
+  const { categories: dbCategories, loading: categoriesLoading, error: categoriesError, refresh: refreshCategories } = useCategories()
+  const categories = useMemo(
+    () => dbCategories.map((c) => c.name),
+    [dbCategories],
+  )
+
   const filtered = useMemo(() => {
     let rows = reservations
     if (tab !== 'all') {
@@ -188,6 +198,9 @@ export default function Reservations() {
         expired: 'EXPIRED',
       }
       rows = reservations.filter((r) => r.status === (statusMap[tab] || tab.toUpperCase()))
+    }
+    if (categoryFilter) {
+      rows = rows.filter((r) => r.bookCategory === categoryFilter)
     }
     const q = search.trim().toLowerCase()
     if (q) {
@@ -208,7 +221,7 @@ export default function Reservations() {
       return cmp * dir
     })
     return list
-  }, [reservations, tab, sortBy, sortOrder, search])
+  }, [reservations, tab, sortBy, sortOrder, search, categoryFilter])
 
   const exportCsv = () => {
     if (!filtered.length) {
@@ -515,16 +528,18 @@ export default function Reservations() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by title, author, ISBN or reservation no..."
-          className="w-full rounded-2xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 shadow-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-        />
-      </div>
+      <CategorySearchBar
+        categories={categories.map((c) => ({ value: c, label: c }))}
+        selectedCategory={categoryFilter}
+        onCategoryChange={setCategoryFilter}
+        value={search}
+        onValueChange={setSearch}
+        placeholder="Search by title, author, ISBN or reservation no..."
+        ariaLabel="Search reservations"
+        loading={categoriesLoading}
+        error={categoriesError}
+        onRetry={refreshCategories}
+      />
 
       <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {['all', 'waiting', 'ready', 'completed', 'cancelled', 'expired'].map((t) => (
@@ -567,7 +582,7 @@ export default function Reservations() {
             const expiryDate = res.pickupExpiryDate ? new Date(res.pickupExpiryDate) : null
             const hoursLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60))) : 0
             const daysLeft = daysBetween(res.pickupExpiryDate)
-            const coverSrc = res.bookCoverImageUrl || null
+            const coverSrc = coverOrSlug(res.bookCoverImageUrl, res.bookTitle)
 
             return (
               <div
@@ -577,17 +592,12 @@ export default function Reservations() {
                 }`}
               >
                 <div className="flex gap-3">
-                  {coverSrc ? (
-                    <img
-                      src={coverSrc}
-                      alt={res.bookTitle}
-                      className="h-16 w-12 shrink-0 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-gray-700"
-                      onError={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling?.classList.remove('hidden') }}
-                    />
-                  ) : null}
-                  <div className={`flex h-16 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 ${coverSrc ? 'hidden' : ''}`}>
-                    <BookOpen className="h-6 w-6 text-gray-400" />
-                  </div>
+                  <BookCover
+                    src={coverSrc}
+                    alt={res.bookTitle}
+                    className="h-16 w-12 shrink-0 rounded-lg ring-1 ring-gray-200 dark:ring-gray-700"
+                    imgClassName="h-full w-full rounded-lg object-cover"
+                  />
                   <div className="flex-1 min-w-0">
                     <button
                       type="button"
@@ -862,18 +872,12 @@ export default function Reservations() {
         ) : detailReservation ? (
           <div className="space-y-5">
             <div className="flex gap-4 rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
-              {detailReservation.bookCoverImageUrl ? (
-                <img
-                  src={detailReservation.bookCoverImageUrl}
-                  alt={detailReservation.bookTitle}
-                  className="h-20 w-14 shrink-0 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-gray-700"
-                  onError={(e) => { e.target.style.display = 'none' }}
-                />
-              ) : (
-                <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-700">
-                  <BookOpen className="h-8 w-8 text-gray-400" />
-                </div>
-              )}
+              <BookCover
+                src={coverOrSlug(detailReservation.bookCoverImageUrl, detailReservation.bookTitle)}
+                alt={detailReservation.bookTitle}
+                className="h-20 w-14 shrink-0 rounded-lg ring-1 ring-gray-200 dark:ring-gray-700"
+                imgClassName="h-full w-full rounded-lg object-cover"
+              />
               <div className="min-w-0">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50">{detailReservation.bookTitle}</h3>
                 <p className="text-sm text-gray-500">{detailReservation.bookAuthor}</p>

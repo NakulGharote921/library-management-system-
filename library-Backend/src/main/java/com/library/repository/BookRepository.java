@@ -14,6 +14,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
 
     List<Book> findByCategory(String category);
 
+    long countByCategory(String category);
+
     List<Book> findByAvailableCopiesGreaterThan(Integer copies);
 
     Optional<Book> findByIsbn(String isbn);

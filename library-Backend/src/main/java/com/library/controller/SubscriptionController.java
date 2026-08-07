@@ -1,5 +1,6 @@
 package com.library.controller;
 
+import com.library.dto.MembershipSummaryDto;
 import com.library.entity.User;
 import com.library.entity.UserSubscription;
 import com.library.exception.BusinessException;
@@ -73,6 +74,15 @@ public class SubscriptionController {
         User user = userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("User", auth.getName()));
         return subscriptionService.getActiveSubscription(user)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.noContent().build());
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<MembershipSummaryDto> membershipSummary(Authentication auth) {
+        User user = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User", auth.getName()));
+        return subscriptionService.getMembershipSummary(user)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.noContent().build());
     }

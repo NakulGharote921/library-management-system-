@@ -1,6 +1,6 @@
 # Lumina Library Management System
 
-> A production-grade Enterprise Library Management System (ELMS) with JWT-based authentication, role-based access control, subscription plans, fine management, Razorpay payments, and real-time analytics.
+> A production-grade Enterprise Library Management System (ELMS) with JWT-based authentication, role-based access control, category management, subscription plans, fine management, Razorpay payments, and real-time analytics.
 
 ## Overview
 
@@ -11,17 +11,18 @@ The system handles the complete book lifecycle — acquisition, cataloging, lend
 ## Key Features
 
 - **Role-Based Access Control** — Role-based security model (Admin, Member) with JWT-based stateless authentication
-- **Book Lifecycle Management** — CRUD operations, cataloging by category/author/publisher, ISBN tracking, shelf location mapping
+- **Category Management** — Dynamic category catalog with full admin CRUD (create, edit, retire, delete), duplicate-name protection (409), validation (400), and a cached global category store powering every dropdown and filter across the app
+- **Book Lifecycle Management** — CRUD operations, cataloging by category/author/publisher, ISBN tracking, cover upload, per-copy availability management
 - **Issue & Return System** — Member send-borrow-request → admin approval workflow with in-app + email notifications, due-date tracking, renewal limits, and automatic overdue detection
 - **Fine Engine** — Auto-calculated overdue fines, manual/waved fines, Razorpay payment gateway integration
 - **Reservation & Waitlist** — FIFO queue-based reservation with WAITING → READY_FOR_PICKUP → COMPLETED/EXPIRED lifecycle, 48-hour pickup hold, position tracking, in-app + email notifications
-- **Subscription Plans** — Tiered service plans (Silver, Gold, Premium, Student) with configurable borrowing limits, loan durations, and fine exemptions
+- **Subscription Plans** — Tiered service plans with configurable borrowing limits, loan durations, fine exemptions, featured (Most Popular) flags, and retire workflow
 - **Wishlist** — Persistent per-user book wishlist with unique constraints
 - **Analytics Dashboard** — Real-time stats on books, members, loans, revenue, subscription distribution, and most-borrowed titles
 - **Audit Logging** — Comprehensive activity tracking for enterprise compliance
 - **Dark Mode** — Theme toggle persisted to localStorage with full Tailwind CSS dark-mode support
 - **Search & Pagination** — Advanced book/user search with paginated, filterable results
-- **Responsive Design** — Mobile-first layout with collapsible sidebar and adaptive grid
+- **Responsive Design** — Mobile-first layout with collapsible sidebar, adaptive grids, and premium SaaS-style UI components (modals rendered via React portals, focus-trapped, scroll-locked)
 
 ## Screenshots
 
@@ -58,17 +59,18 @@ The backend enforces all business rules and security constraints. The frontend i
 ## Folder Structure
 
 ```
-library-management-system/
+E-Library-Management-System/
 ├── .github/                          # GitHub workflows & tooling
-│   └── modernize/java-upgrade/       # Java upgrade automation scripts
 ├── docs/
 │   └── PRD.md                        # Product requirements document
-├── library-management/               # Spring Boot backend (port 8081)
+├── library-Backend/                  # Spring Boot backend (port 8081)
+│   ├── pom.xml
+│   ├── render.yaml                   # Render.com deployment config
 │   └── src/main/java/com/library/
 │       ├── config/                   # SecurityConfig, CORS config
-│       ├── controller/               # 12 REST controllers
+│       ├── controller/               # 19 REST controllers
 │       ├── dto/                      # Request/response DTOs
-│       ├── entity/                   # 9 JPA entities
+│       ├── entity/                   # 14 JPA entities
 │       ├── exception/                # Global exception handler
 │       ├── repository/               # Spring Data JPA repositories
 │       ├── security/                 # JWT provider, filter, UserDetails
@@ -76,15 +78,15 @@ library-management-system/
 │       └── scheduler/                # Cron jobs (subscription expiry)
 ├── library-frontend/                 # React frontend (port 3000)
 │   ├── public/                       # Static assets
-│   ├── scripts/                      # Build & deployment scripts
+│   ├── scripts/                      # Build & redirect scripts
 │   └── src/
 │       ├── components/               # Reusable UI components
 │       ├── constants/                # Branding & app constants
 │       ├── layout/                   # AppLayout, Navbar, Sidebar
-│       ├── pages/                    # 20 page components
-│       ├── services/                 # API client & auth service
-│       └── store/                    # Redux slices (auth, ui)
-├── Row Data/                         # Data export directory
+│       ├── pages/                    # 25 page components
+│       ├── services/                 # API clients & services
+│       └── store/                    # Redux slices + context providers
+├── Books Covers/                     # Book cover assets
 └── README.md
 ```
 
@@ -100,8 +102,8 @@ library-management-system/
 ### Step 1: Clone the repository
 
 ```bash
-git clone https://github.com/your-username/library-management-system.git
-cd library-management-system
+git clone https://github.com/NakulGharote921/E-Library-Management-System.git
+cd E-Library-Management-System
 ```
 
 ### Step 2: Database setup
@@ -112,7 +114,7 @@ mysql -u root -p -e "CREATE DATABASE library_dbg CHARACTER SET utf8mb4 COLLATE u
 
 ### Step 3: Configure backend
 
-Edit `library-management/src/main/resources/application.properties`:
+Edit `library-Backend/src/main/resources/application.properties`:
 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/library_dbg?zeroDateTimeBehavior=CONVERT_TO_NULL&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
@@ -127,7 +129,7 @@ razorpay.key-secret=your_razorpay_key_secret
 ### Step 4: Start the backend
 
 ```bash
-cd library-management
+cd library-Backend
 mvn spring-boot:run
 ```
 
@@ -166,12 +168,21 @@ The app opens at `http://localhost:3000`.
 | `VITE_API_BASE_URL` | `http://localhost:8081/api` | Backend API base URL |
 | `BACKEND_URL` | — | Netlify proxy backend URL (production) |
 
+## Demo Credentials
+
+| Role | Email | Password |
+|---|---|---|
+| **ADMIN** | `admin@kodnest.com` | `Admin@123` |
+| **MEMBER** | Register a new account at `/register` | — |
+
+> The seed data also includes 6 book categories (Business, Fiction, History, Programming, Science, Technology) and a demo book catalog so every module is explorable immediately.
+
 ## Usage
 
 ### For Library Members
 
 1. **Register** an account at `/register`
-2. **Browse** the book catalog and search by title or author
+2. **Browse** the book catalog — filter by category or search by title/author
 3. **Borrow** available books — the system checks your subscription limits
 4. **Return** books before the due date to avoid fines
 5. **Reserve** books that are currently checked out and join the waitlist
@@ -181,45 +192,46 @@ The app opens at `http://localhost:3000`.
 
 ### For Administrators
 
-Administrators handle the full staff workflow and platform governance:
-
-1. **Manage books** — add, update, delete, and catalog items
-2. **Approve borrow/return requests** and issue books to members with due-date tracking
-3. **Process returns** — the system automatically calculates overdue fines
-4. **Manage members** — view profiles, borrowing history, and fine status
-5. **View reports** on circulation, overdue items, and popular titles
-6. **Manage subscription plans** — create, update, retire plans with custom pricing and limits
-7. **Waive fines** — discretionary fine waiving with audit trail
-8. **Access analytics** — full system analytics with revenue tracking and subscription distribution
-9. **View audit logs** — complete activity log for compliance
-10. **System configuration** — manage settings and global parameters
+1. **Manage categories** — create, edit, and retire categories; they drive every dropdown and filter
+2. **Manage books** — add, update, delete, and catalog items with category assignment
+3. **Approve borrow/return requests** and issue books to members with due-date tracking
+4. **Process returns** — the system automatically calculates overdue fines
+5. **Manage members** — view profiles, borrowing history, and fine status
+6. **View reports** on circulation, overdue items, and popular titles
+7. **Manage subscription plans** — create, update, retire plans with custom pricing, limits, and features
+8. **Waive fines** — discretionary fine waiving with audit trail
+9. **Access analytics** — full system analytics with revenue tracking and subscription distribution
+10. **View audit logs** — complete activity log for compliance
 
 ## User Roles
 
 | Role | Capabilities |
 |---|---|
 | **MEMBER** | Browse books, borrow/return, reserve, wishlist, pay fines, view own history, manage own subscriptions |
-| **ADMIN** | All MEMBER capabilities + manage books, manage members, approve borrow/return requests, issue books, process returns, manage subscription plans, waive fines, full analytics, audit logs, system configuration, role assignment |
+| **ADMIN** | All MEMBER capabilities + manage books, categories, members, approve borrow/return requests, issue books, process returns, manage subscription plans, waive fines, full analytics, audit logs, role assignment |
 
 ## Core Modules
 
 ### Authentication Module
 JWT-based login/register with BCrypt password hashing. Issues signed tokens with embedded role claims for stateless authorization across all API requests.
 
+### Category Module
+Dynamic categories backed by a `Category` entity with `createdAt`/`updatedAt` audit fields. Admin CRUD exposes duplicate detection (409 Conflict), blank-name validation (400), and soft-safe deletes. The frontend caches categories globally (`CategoryProvider` + Context) so the dropdown, book filter, admin book form, wishlist chips, and reservations page all stay in sync with one fetch and auto-refresh after mutations.
+
 ### Book Management Module
-Full CRUD with catalog metadata (ISBN, publisher, year, language, shelf location, cover image). Supports average rating tracking and per-copy availability management.
+Full CRUD with catalog metadata (ISBN, publisher, year, language, shelf location, cover image, category). Supports average rating tracking, per-copy availability management, and server-side category filtering (`GET /api/books/by-category/{id}`).
 
 ### Circulation Module
 Handles book issuing (with subscription-limit enforcement), returns with automatic fine calculation, renewal tracking, and overdue detection.
 
 ### Subscription Module
-Tiered plan system with configurable parameters (max books, loan days, renewals, priority reservation, fine exemption). Includes plan lifecycle management and auto-expiry via daily scheduler.
+Tiered plan system with configurable parameters (max books, loan days, renewals, reservations, priority reservation, fine exemption, features list). Includes plan lifecycle management (ACTIVE/INACTIVE/RETIRED), Most Popular flagging, and auto-expiry via daily scheduler.
 
 ### Fine & Payment Module
-Auto-generates overdue fines on late returns. Supports manual and waived fines. Integrates with Razorpay for online payment processing with order creation, verification, and webhook handling.
+Auto-generates overdue fines on late returns. Supports manual and waived fines. Integrates with Razorpay for online payment processing with order creation, signature verification, and webhook handling.
 
 ### Reservation Module
-Queue-based waitlist system with position tracking. Supports pending, fulfilled, and cancelled states. Prevents duplicate active reservations.
+Queue-based waitlist system with position tracking. Supports waiting, ready-for-pickup, fulfilled, expired, and cancelled states. Prevents duplicate active reservations.
 
 ### Analytics Module
 Provides role-aware dashboard statistics and full enterprise analytics including book counts, member metrics, loan activity, overdue rates, subscription breakdown, revenue data, and most-borrowed book rankings.
@@ -274,8 +286,10 @@ Member selects plan → Razorpay order created → Member pays on Razorpay check
 | Category | Base Path | Key Endpoints |
 |---|---|---|
 | **Auth** | `/api/auth` | `POST /login`, `POST /register`, `GET /me` |
-| **Books** | `/api/books` | `GET /`, `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}`, `GET /search`, `POST /{id}/borrow` |
+| **Categories** | `/api/categories` | `GET /`, `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}` |
+| **Books** | `/api/books` | `GET /`, `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}`, `GET /search`, `GET /by-category/{id}` |
 | **Users** | `/api/users` | `GET /`, `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}`, `GET /search` |
+| **Borrow Requests** | `/api/borrow-requests` | `POST /`, `GET /`, `GET /my`, `PUT /{id}/approve`, `PUT /{id}/reject` |
 | **Issued Books** | `/api/issued-books` | `GET /`, `GET /active`, `GET /overdue`, `GET /my`, `POST /issue`, `PUT /return/{id}` |
 | **Fines** | `/api/fines` | `GET /`, `GET /my`, `GET /user/{id}`, `POST /{id}/waive` |
 | **Payments** | `/api/payments` | `POST /create-order`, `POST /verify`, `GET /my`, `POST /webhook` |
@@ -283,8 +297,12 @@ Member selects plan → Razorpay order created → Member pays on Razorpay check
 | **Subscriptions** | `/api/subscriptions` | `POST /purchase/{planId}`, `GET /my`, `GET /active`, `POST /{id}/cancel` |
 | **Subscription Plans** | `/api/subscription-plans` | `GET /`, `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}` |
 | **Wishlist** | `/api/wishlist` | `GET /`, `POST /{bookId}`, `DELETE /{bookId}` |
+| **Reading History** | `/api/reading-history` | `GET /my`, `GET /` |
+| **Notifications** | `/api/notifications` | `GET /my`, `POST /{id}/read` |
 | **Analytics** | `/api/analytics` | `GET /` |
 | **Dashboard** | `/api/dashboard` | `GET /stats` |
+| **Audit Logs** | `/api/audit-logs` | `GET /` |
+| **Home Stats** | `/api/home-stats` | `GET /` |
 
 ## Database Design
 
@@ -301,6 +319,7 @@ User ──1:N──► WishlistItem    (owner)
 Book ──1:N──► IssuedBook     (borrowed)
 Book ──1:N──► Reservation     (requested)
 Book ──1:N──► WishlistItem    (desired)
+Book ──N:1──► Category        (cataloged under)
 
 IssuedBook ──1:N──► Fine      (penalty source)
 Fine ──1:N──► PaymentTransaction (settlement)
@@ -314,13 +333,13 @@ SubscriptionPlan ──1:N──► UserSubscription (plan assignment)
 - **Soft references**: Role stored as enum string, status fields as strings for readability
 - **Cascading**: `User` → `UserSubscription` uses `CascadeType.ALL` for lifecycle management
 - **Audit fields**: `createdAt`, `updatedAt`, `lastLogin` for temporal tracking
-- **Unique constraints**: Wishlist prevents duplicate entries at database level
+- **Unique constraints**: Wishlist prevents duplicate entries at database level; category names are unique to prevent duplicates (409 Conflict)
 
 ## Security Features
 
 - **Stateless JWT Authentication** — Tokens signed with HMAC-SHA key, 24-hour expiration, role embedded in claims
 - **BCrypt Password Hashing** — Spring Security's BCryptPasswordEncoder with configurable strength
-- **Role-Based Access Control** — Three-tier authorization enforced at both API gateway (Spring Security filter chain) and service layer (method-level checks)
+- **Role-Based Access Control** — Authorization enforced at both the API gateway (Spring Security filter chain) and service layer (method-level checks)
 - **CORS Configuration** — Whitelisted origins (`localhost:*`, `127.0.0.1:*`) with credential support
 - **Input Validation** — Jakarta Bean Validation annotations on all DTOs and entities
 - **SQL Injection Protection** — JPA parameterized queries throughout
@@ -333,6 +352,7 @@ SubscriptionPlan ──1:N──► UserSubscription (plan assignment)
 - **Lazy Loading** — JPA `FetchType.LAZY` on all collection associations to minimize database queries
 - **Pagination** — Server-side pagination on user listing and search endpoints to reduce payload size
 - **Indexed Search Columns** — Unique indexes on `email`, `isbn`, `razorpay_order_id` for O(1) lookups
+- **Cached Category Store** — Global category context fetches once and refetches only on mutations, avoiding duplicate API calls across pages
 - **Stateless Architecture** — No server-side session overhead; JWT tokens are self-contained
 - **Vite Build Optimizations** — Tree-shaking, code splitting, and minified production bundles
 - **Tailwind CSS Purge** — Production builds strip unused CSS classes automatically
@@ -341,7 +361,7 @@ SubscriptionPlan ──1:N──► UserSubscription (plan assignment)
 
 - **Global Exception Handler** — Centralized `@ControllerAdvice` catches all exceptions and returns consistent JSON error responses with HTTP status codes
 - **DTO Validation Errors** — Field-level validation messages returned in structured format
-- **Business Rule Exceptions** — Custom exceptions for subscription limits, overdue status, duplicate reservations, etc.
+- **Business Rule Exceptions** — Custom exceptions for subscription limits, overdue status, duplicate reservations, duplicate categories, etc.
 - **Frontend Error Parsing** — Utility function `getApiErrorMessage()` extracts human-readable messages from backend error responses
 - **HTTP Status Mapping** — 400 (bad request), 401 (unauthorized), 403 (forbidden), 404 (not found), 409 (conflict), 500 (server error)
 
@@ -351,14 +371,17 @@ The frontend is built with Tailwind CSS and is fully responsive across:
 
 | Device | Layout Behavior |
 |---|---|
-| **Desktop (1024px+)** | Full sidebar + navbar with multi-column grids |
-| **Tablet (768-1023px)** | Collapsible sidebar, adjusted grid columns |
+| **Desktop (1024px+)** | Full sidebar + navbar with multi-column grids (3–4 cards per row) |
+| **Tablet (768-1023px)** | Collapsible sidebar, adjusted grid columns (2 cards per row) |
 | **Mobile (<768px)** | Bottom navigation or hamburger menu, single-column layouts |
+
+Modals render via React portals into `document.body` with `fixed inset-0` overlays, so they are always centered relative to the viewport regardless of sidebar state, screen size, or zoom level.
 
 ## Accessibility
 
 - Semantic HTML structure with proper heading hierarchy
-- ARIA labels on interactive elements
+- ARIA labels on interactive elements; `role="dialog"` + `aria-modal="true"` on modals
+- Full keyboard support — ESC closes modals, Tab focus is trapped inside modals and restored on close
 - Keyboard-navigable forms and menus
 - Sufficient color contrast ratios (both light and dark themes)
 - Focus indicators on all interactive elements
@@ -377,10 +400,10 @@ The frontend is built with Tailwind CSS and is fully responsive across:
 | jjwt 0.12.5 | JWT token generation & validation |
 | MySQL 8.0 | Primary database |
 | H2 | Runtime/test database |
-| Lombok 1.18.46 | Boilerplate reduction |
+| Lombok | Boilerplate reduction |
 | Jakarta Validation | Input validation |
-| Razorpay Java SDK 1.4.6 | Payment gateway integration |
-| Maven 3.9.6 | Build & dependency management |
+| Razorpay Java SDK | Payment gateway integration |
+| Maven | Build & dependency management |
 
 ### Frontend
 
@@ -388,22 +411,28 @@ The frontend is built with Tailwind CSS and is fully responsive across:
 |---|---|
 | React 19.2 | UI framework |
 | Vite 8.0 | Build tool & dev server |
-| Redux Toolkit 2.12 | State management |
-| React Router DOM 7.15 | Client-side routing |
+| Redux Toolkit 2.12 | State management (auth, UI) |
+| React Context | Global category store |
+| React Router DOM 6.30 | Client-side routing |
 | Axios 1.16 | HTTP client |
 | Tailwind CSS 3.4 | Utility-first CSS framework |
-| Lucide React 1.14 | Icon library |
-| React Hot Toast 2.6 | Toast notifications |
+| Lucide React | Icon library |
+| React Hot Toast | Toast notifications |
+| Motion (Framer Motion) | Page/UI animations |
+| Chart.js | Analytics charts |
+| Flowbite / Flowbite React | UI primitives |
+| GSAP | Advanced animations (landing) |
 
 ## Project Highlights
 
-- **Enterprise-grade RBAC** with three distinct roles, role-aware frontend navigation, and method-level backend authorization
+- **Enterprise-grade RBAC** with role-aware frontend navigation and method-level backend authorization
+- **Dynamic category system** — admin-managed categories with duplicate protection, powering every filter and dropdown from a single cached store
 - **Tiered subscription system** with configurable plans, auto-expiry scheduler, and Razorpay payment integration
 - **Real-time fine calculation engine** that auto-generates overdue fines on return with customizable daily rates
 - **Queue-based reservation system** with position tracking and fulfillment lifecycle
 - **Comprehensive analytics** covering books, members, loans, subscriptions, revenue, and trend data
 - **Dark mode** with system-preference detection and persistent user preference
-- **Netlify-ready deployment** with automated SPA redirect configuration
+- **Premium modal UX** — portal-based, viewport-centered, focus-trapped modals with body scroll-locking
 
 ## Challenges Solved
 
@@ -414,7 +443,9 @@ The frontend is built with Tailwind CSS and is fully responsive across:
 | **Reservation queue ordering** without race conditions | Atomic queue position assignment using count query within transactional context |
 | **Razorpay payment verification** on server side | Signature verification using HMAC-SHA256 with Razorpay's key secret; webhook handler for async status updates |
 | **Role-aware frontend navigation** without duplicating route components | `ProtectedRoute` + `RoleGuard` wrapper components; sidebar renders conditionally based on `user.role` from Redux store |
-| **Auto-expiry of subscriptions** without a full-time job scheduler | Spring `@Scheduled` cron job runs daily at 2 AM; batch-updates expired subscriptions using `endDate < CURRENT_DATE` query |
+| **Auto-expiry of subscriptions** without a full-time job scheduler | Spring `@Scheduled` cron job runs daily; batch-updates expired subscriptions using `endDate < CURRENT_DATE` query |
+| **Modal focus loss while typing** | Focus-trap effect now runs only on the `open` transition (stale `onClose` references held in a ref), so re-renders never steal focus from inputs |
+| **Modal not centered inside dashboard layout** | Modals render through `ReactDOM.createPortal` into `document.body`, escaping the layout's transformed wrapper that hijacked `position: fixed` |
 
 ## Future Improvements
 
@@ -427,6 +458,7 @@ The frontend is built with Tailwind CSS and is fully responsive across:
 - **Public catalog API** — Read-only API for external integrations
 - **AI-powered recommendations** — Collaborative filtering for book suggestions based on borrowing history
 - **Bulk import/export** — CSV-based batch operations for books and members
+- **Self-service admin promotion** — Secure endpoint to promote a member to admin
 
 ## Contributing
 
@@ -451,7 +483,7 @@ Contributions are welcome and appreciated. Here's how to contribute:
 ### Backend
 
 ```bash
-cd library-management
+cd library-Backend
 mvn test
 ```
 
@@ -459,7 +491,7 @@ mvn test
 
 ```bash
 cd library-frontend
-npm test
+npm run lint
 ```
 
 > Note: Test coverage is currently being expanded. Contributions adding test coverage are especially welcome.
@@ -469,10 +501,12 @@ npm test
 ### Backend (Spring Boot JAR)
 
 ```bash
-cd library-management
+cd library-Backend
 mvn clean package
 java -jar target/library-management-1.0.0.jar --spring.profiles.active=cloud
 ```
+
+The project ships with a ready-to-use **Render** configuration (`render.yaml`) and is deployable against a hosted MySQL instance (e.g., Railway MySQL).
 
 ### Frontend (Static build)
 
@@ -481,7 +515,7 @@ cd library-frontend
 npm run build
 ```
 
-The output in `dist/` can be deployed to any static hosting provider. For **Netlify**, the build script automatically generates a `_redirects` file for SPA routing and API proxying.
+The output in `dist/` can be deployed to any static hosting provider. For **Netlify**, the build script automatically generates a `_redirects` file for SPA routing and API proxying; **Vercel** deployments are also supported.
 
 ### Docker (Coming soon)
 
@@ -491,6 +525,9 @@ Docker Compose configuration for one-command deployment will be added in a futur
 
 **Q: How do I create an admin account?**
 A: Register as a MEMBER first, then update the role to ADMIN directly in the database (`UPDATE users SET role='ADMIN' WHERE email='your@email.com'`). A self-service admin promotion endpoint is planned.
+
+**Q: How do I add book categories?**
+A: Log in as an admin and open **Categories** from the sidebar. Use *Add Category* to create one — it appears immediately in every book form, filter dropdown, and wishlist chip across the app.
 
 **Q: Can I use a different database?**
 A: Yes. Update the `spring.datasource` properties and add the appropriate JDBC driver dependency. PostgreSQL and H2 are directly supported; others require minor configuration changes.
@@ -509,22 +546,19 @@ A: Yes. Use Razorpay test keys (`rzp_test_*`) in your configuration. The system 
 
 ## License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License**.
 
 ## Author
 
 **Lumina Library** is developed and maintained by the library engineering team.
 
-- GitHub: [@your-username](https://github.com/your-username)
-- Website: [lumina-library.dev](https://lumina-library.dev)
-- Email: dev@lumina-library.dev
+- GitHub: [@NakulGharote921](https://github.com/NakulGharote921)
 
 ## Support
 
 - **Documentation**: See the `docs/` directory for the product requirements document
-- **Issues**: Report bugs or request features via [GitHub Issues](https://github.com/your-username/library-management-system/issues)
-- **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/your-username/library-management-system/discussions)
-- **Security disclosures**: Email dev@lumina-library.dev for sensitive security reports
+- **Issues**: Report bugs or request features via [GitHub Issues](https://github.com/NakulGharote921/E-Library-Management-System/issues)
+- **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/NakulGharote921/E-Library-Management-System/discussions)
 
 ## Acknowledgements
 
@@ -536,11 +570,10 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ## GitHub Stats Badges
 
-![License](https://img.shields.io/github/license/your-username/library-management-system)
-![Stars](https://img.shields.io/github/stars/your-username/library-management-system)
-![Forks](https://img.shields.io/github/forks/your-username/library-management-system)
-![Issues](https://img.shields.io/github/issues/your-username/library-management-system)
-![Pull Requests](https://img.shields.io/github/issues-pr/your-username/library-management-system)
-![Last Commit](https://img.shields.io/github/last-commit/your-username/library-management-system)
-![Repository Size](https://img.shields.io/github/repo-size/your-username/library-management-system)
-"# E-Library-Management-System" 
+![License](https://img.shields.io/github/license/NakulGharote921/E-Library-Management-System)
+![Stars](https://img.shields.io/github/stars/NakulGharote921/E-Library-Management-System)
+![Forks](https://img.shields.io/github/forks/NakulGharote921/E-Library-Management-System)
+![Issues](https://img.shields.io/github/issues/NakulGharote921/E-Library-Management-System)
+![Pull Requests](https://img.shields.io/github/issues-pr/NakulGharote921/E-Library-Management-System)
+![Last Commit](https://img.shields.io/github/last-commit/NakulGharote921/E-Library-Management-System)
+![Repository Size](https://img.shields.io/github/repo-size/NakulGharote921/E-Library-Management-System)

@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Value
 @Builder
@@ -21,4 +22,5 @@ public class AdminDashboardDto {
     BigDecimal overdueRate;
     BigDecimal monthlyRevenue;
     BigDecimal totalRevenue;
+    List<AnalyticsDto.MostBorrowedDto> mostBorrowed;
 }

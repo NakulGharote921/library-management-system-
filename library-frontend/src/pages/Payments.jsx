@@ -238,6 +238,30 @@ export default function Payments() {
     }
   }
 
+  const renderActions = (txn, isPendingFine, fineId) => (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {isPendingFine && role !== 'ADMIN' && (
+        <Button size="sm" variant="primary" type="button" disabled={payingId !== null} loading={payingId === fineId} onClick={() => handlePay(fineId)}>
+          Pay Now
+        </Button>
+      )}
+      {isPendingFine && role === 'ADMIN' && (
+        <Button size="sm" variant="secondary" type="button" onClick={() => handleWaive(fineId)}>
+          Waive
+        </Button>
+      )}
+      {(txn.status === 'SUCCESS' || txn.status === 'PAID') && (
+        <button
+          type="button"
+          onClick={() => setReceiptTxn(txn)}
+          className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500 transition hover:bg-primary-50 hover:text-primary-700 dark:bg-gray-800 dark:hover:bg-primary-950 dark:hover:text-primary-300"
+        >
+          <Download className="h-3 w-3" /> Receipt
+        </button>
+      )}
+    </div>
+  )
+
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
@@ -289,7 +313,8 @@ export default function Payments() {
           <p className="mt-1 text-sm text-gray-500">All transactions will appear here.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <>
+        <div className="hidden overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
@@ -334,35 +359,52 @@ export default function Payments() {
                         <p className="text-sm whitespace-nowrap"><StatusLabel status={txn.status} /></p>
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        {isPendingFine && role !== 'ADMIN' && (
-                          <Button size="sm" variant="primary" type="button" disabled={payingId !== null} loading={payingId === fineId} onClick={() => handlePay(fineId)}>
-                            Pay Now
-                          </Button>
-                        )}
-                        {isPendingFine && role === 'ADMIN' && (
-                          <Button size="sm" variant="secondary" type="button" onClick={() => handleWaive(fineId)}>
-                            Waive
-                          </Button>
-                        )}
-                        {(txn.status === 'SUCCESS' || txn.status === 'PAID') && (
-                          <button
-                            type="button"
-                            onClick={() => setReceiptTxn(txn)}
-                            className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500 transition hover:bg-primary-50 hover:text-primary-700 dark:bg-gray-800 dark:hover:bg-primary-950 dark:hover:text-primary-300"
-                          >
-                            <Download className="h-3 w-3" /> Receipt
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                    <td className="px-4 py-3 text-right">{renderActions(txn, isPendingFine, fineId)}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
         </div>
+        <div className="space-y-3 md:hidden">
+          {visibleTransactions.map((txn) => {
+            const TypeIcon = TYPE_ICONS[txn.type || txn.paymentType] || DollarSign
+            const typeColor = TYPE_COLORS[txn.type || txn.paymentType] || TYPE_COLORS.FINE
+            const statusColor = STATUS_FILLED[txn.status] || STATUS_FILLED.PENDING
+            const date = new Date(txn.date || txn.createdAt || txn.completedAt)
+            const isPendingFine = (txn.type || txn.paymentType) === 'FINE' && (txn.status === 'PENDING' || txn.status === 'FAILED')
+            const fineId = txn.fineId || txn.fine?.id
+
+            return (
+              <div key={txn.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-gray-50">{txn.label || txn.description || `${txn.paymentType || txn.type} Payment`}</p>
+                    {txn.detail && <p className="mt-0.5 text-xs text-gray-500">{txn.detail}</p>}
+                  </div>
+                  <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor}`}>
+                    <StatusIcon status={txn.status} />
+                    <StatusLabel status={txn.status} />
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${typeColor}`}>
+                      <TypeIcon className="h-3 w-3" />
+                      {(txn.type || txn.paymentType) === 'SUBSCRIPTION' ? 'Membership' : 'Fine'}
+                    </span>
+                    <span className="shrink-0 text-xs text-gray-500">
+                      {date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+                  <span className="shrink-0 font-semibold text-gray-900 dark:text-gray-50">₹{txn.amount}</span>
+                </div>
+                <div className="mt-3">{renderActions(txn, isPendingFine, fineId)}</div>
+              </div>
+            )
+          })}
+          </div>
+        </>
       )}
       {/* Receipt Modal */}
       <Modal
@@ -371,7 +413,7 @@ export default function Payments() {
         title="Payment Receipt"
         size="sm"
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" size="sm" type="button" icon={Printer} onClick={handlePrint}>
               Print
             </Button>

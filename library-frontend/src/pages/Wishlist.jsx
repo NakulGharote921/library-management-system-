@@ -2,15 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BookOpen, Heart, Trash2, Star, Bell, BellOff, Eye, ArrowUpDown,
-  Search, AlertTriangle, CheckCircle, Clock, RefreshCw,
-  BarChart3, TrendingUp, BookMarked, X,
+  AlertTriangle, CheckCircle, Clock, RefreshCw,
+  BarChart3, TrendingUp, BookMarked,
   ChevronDown, Edit3
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
 import Button from '../components/Button.jsx'
+import BookCover from '../components/BookCover.jsx'
+import CategorySearchBar from '../components/CategorySearchBar.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { borrowBook, getApiErrorMessage, reserveBook, wishlistService } from '../services/api.js'
+import { useCategories } from '../store/CategoryContext.js'
+import { coverOrSlug } from '../utils/bookCovers.js'
 
 const STATUS_BADGE = {
   available: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 ring-emerald-600/20',
@@ -25,6 +29,7 @@ const PRIORITY_STARS = { HIGH: 3, MEDIUM: 2, LOW: 1 }
 export default function Wishlist() {
   const navigate = useNavigate()
   const role = useSelector((s) => s.auth?.user?.role)
+  const { categories: dbCategories } = useCategories()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState(null)
@@ -40,6 +45,7 @@ export default function Wishlist() {
   const [noteText, setNoteText] = useState('')
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showRecommendations, setShowRecommendations] = useState(true)
+  const [openPriorityId, setOpenPriorityId] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -60,6 +66,15 @@ export default function Wishlist() {
   }, [genreFilter, authorFilter, sort, search])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (openPriorityId == null) return
+    const handler = (e) => {
+      if (!e.target.closest?.('[data-priority-menu]')) setOpenPriorityId(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [openPriorityId])
 
   useEffect(() => {
     if (role === 'ADMIN' && showAnalytics) {
@@ -176,28 +191,36 @@ export default function Wishlist() {
     )
   }
 
-  const renderPriorityDropdown = (item) => (
-    <div className="relative group">
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-      >
-        {'⭐'.repeat(PRIORITY_STARS[item.priority] || 2)} <ChevronDown className="h-3 w-3" />
-      </button>
-      <div className="absolute right-0 top-full z-20 mt-1 hidden w-32 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800 group-hover:block">
-        {['HIGH', 'MEDIUM', 'LOW'].map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => handlePriority(item.book.id, p)}
-            className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${item.priority === p ? 'font-semibold text-primary-600' : 'text-gray-700 dark:text-gray-300'}`}
-          >
-            {'⭐'.repeat(PRIORITY_STARS[p])} {PRIORITY_LABEL[p]}
-          </button>
-        ))}
+  const renderPriorityDropdown = (item) => {
+    const open = openPriorityId === item.id
+    return (
+      <div className="relative" data-priority-menu>
+        <button
+          type="button"
+          aria-haspopup="true"
+          aria-expanded={open}
+          onClick={() => setOpenPriorityId(open ? null : item.id)}
+          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition ${open ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+        >
+          {'⭐'.repeat(PRIORITY_STARS[item.priority] || 2)} <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="absolute right-0 top-full z-50 mt-1 w-32 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+            {['HIGH', 'MEDIUM', 'LOW'].map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => { setOpenPriorityId(null); handlePriority(item.book.id, p) }}
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 ${item.priority === p ? 'font-semibold text-primary-600' : 'text-gray-700 dark:text-gray-300'}`}
+              >
+                {'⭐'.repeat(PRIORITY_STARS[p])} {PRIORITY_LABEL[p]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
-  )
+    )
+  }
 
   if (loading && items.length === 0) {
     return (
@@ -241,11 +264,22 @@ export default function Wishlist() {
           <div className="mt-6">
             <p className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">Browse Categories</p>
             <div className="flex flex-wrap justify-center gap-2">
-              {['Programming', 'Databases', 'AI', 'History', 'Business', 'Science', 'Literature'].map((cat) => (
-                <span key={cat} className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                  {cat}
+              {dbCategories.length === 0 ? (
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                  No categories available
                 </span>
-              ))}
+              ) : (
+                dbCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => navigate(`/books?cat=${cat.id}`)}
+                    className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 transition hover:bg-primary-600 hover:text-white dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-primary-600 dark:hover:text-white"
+                  >
+                    {cat.name}
+                  </button>
+                ))
+              )}
             </div>
           </div>
 
@@ -365,30 +399,16 @@ export default function Wishlist() {
 
       {/* Search + Filters + Sort */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search wishlist..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-8 text-sm outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-          />
-          {search && (
-            <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        <select
-          value={genreFilter}
-          onChange={(e) => setGenreFilter(e.target.value)}
-          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        >
-          <option value="">All Genres</option>
-          {genres.map((g) => <option key={g} value={g}>{g}</option>)}
-        </select>
+        <CategorySearchBar
+          className="max-w-2xl flex-1 min-w-[240px]"
+          categories={genres.map((g) => ({ value: g, label: g }))}
+          selectedCategory={genreFilter}
+          onCategoryChange={setGenreFilter}
+          value={search}
+          onValueChange={setSearch}
+          placeholder="Search wishlist..."
+          ariaLabel="Search wishlist"
+        />
 
         <select
           value={authorFilter}
@@ -427,22 +447,16 @@ export default function Wishlist() {
           return (
             <div
               key={item.id}
-              className="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+              className="group relative flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
             >
               {/* Cover Image / Placeholder */}
-              <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-                {item.book.coverImageUrl ? (
-                  <img
-                    src={item.book.coverImageUrl}
-                    alt={item.book.title}
-                    className="h-full w-full object-contain p-4"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center text-gray-300 dark:text-gray-600">
-                    <BookOpen className="h-12 w-12" />
-                    <span className="mt-1 text-xs font-medium">{item.book.category || 'Book'}</span>
-                  </div>
-                )}
+              <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-t-2xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
+                <BookCover
+                  src={coverOrSlug(item.book.coverImageUrl, item.book.title)}
+                  alt={item.book.title}
+                  className="h-full w-full"
+                  imgClassName="h-full w-full object-contain p-4"
+                />
                 {/* Status Badge */}
                 <span className={`absolute right-3 top-3 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${STATUS_BADGE[status]}`}>
                   {statusLabel(status)}

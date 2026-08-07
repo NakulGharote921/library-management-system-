@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPlan, Long> {
 
-    List<SubscriptionPlan> findByStatusOrderByName(String status);
+    List<SubscriptionPlan> findByStatus(String status);
 
     boolean existsByName(String name);
 

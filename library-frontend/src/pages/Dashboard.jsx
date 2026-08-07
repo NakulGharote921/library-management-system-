@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import toast from 'react-hot-toast'
@@ -16,7 +16,6 @@ import {
   AlertTriangle,
   BarChart3,
   Clock,
-  Award,
   LogIn,
   UserPlus as UserPlusIcon,
 } from 'lucide-react'
@@ -90,24 +89,6 @@ function GuestHome() {
   )
 }
 
-function BarChart({ values, labels }) {
-  const max = Math.max(1, ...values)
-  return (
-    <div className="mt-4 flex h-40 items-end gap-2">
-      {values.map((v, i) => (
-        <div key={labels[i]} className="flex flex-1 flex-col items-center gap-2">
-          <div
-            className="w-full rounded-t-lg bg-gradient-to-t from-primary-600 to-primary-400 shadow-inner shadow-primary-900/10 transition-all duration-500"
-            style={{ height: `${(v / max) * 100}%`, minHeight: v ? '8%' : '2%' }}
-            title={`${labels[i]}: ${v}`}
-          />
-          <span className="text-[10px] font-medium text-gray-500">{labels[i]}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function RoleGreeting({ role, name }) {
   if (role === 'ADMIN') return `Welcome back, ${name || 'Admin'}`
   return `Welcome back, ${name || 'Member'}`
@@ -118,7 +99,7 @@ function RoleDescription({ role }) {
   return 'Track your loans, reservations, and manage your library profile.'
 }
 
-function AdminDashboard({ stats, navigate }) {
+function AdminDashboard({ stats }) {
   return (
     <>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -135,34 +116,39 @@ function AdminDashboard({ stats, navigate }) {
   )
 }
 
-function MemberDashboard({ stats, navigate, subscription }) {
-  const plan = subscription?.plan
-  const progress = plan ? Math.min(100, ((stats?.activeIssues || 0) / plan.maxBooks) * 100) : 0
+function MemberDashboard({ stats, navigate, summary }) {
+  const planName = summary?.membershipName
+  const allowed = summary?.allowedBooks ?? 0
+  const borrowed = summary?.borrowedBooks ?? 0
+  const progress = allowed > 0 ? Math.min(100, (borrowed / allowed) * 100) : 0
   return (
     <>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-start justify-between">
-            <div>
+            <div >
               <p className="text-sm font-medium text-gray-500">Membership</p>
-              <p className="mt-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50 uppercase">
-                {plan?.name || 'No Plan'}
+              <p className="mt-2 flex items-center text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50 uppercase">
+                {planName || 'No Plan'}
+                {planName === 'Student' && <i className="fi fi-rs-badge ml-2 text-amber-500" aria-hidden="true" />}
               </p>
-              {subscription ? (
+              {summary ? (
                 <div className="mt-3 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-400">Borrow Limit</span>
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">{stats?.activeIssues ?? 0} / {plan?.maxBooks || 0}</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">{borrowed} / {allowed} Books</span>
                   </div>
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                     <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-500" style={{ width: `${progress}%` }} />
                   </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-400">Expires</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">
+                      {summary.expiryDate ? new Date(`${summary.expiryDate}T00:00:00`).toLocaleDateString() : '—'}
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-400">
-                    {subscription.status === 'ACTIVE' || subscription.status === 'EXPIRING'
-                      ? `Expires ${new Date(subscription.endDate).toLocaleDateString()}`
-                      : subscription.status === 'EXPIRED'
-                      ? 'Expired — Renew now'
-                      : subscription.status}
+                    {summary.daysRemaining > 0 ? `${summary.daysRemaining} days remaining` : 'Expired — Renew now'}
                   </p>
                 </div>
               ) : (
@@ -170,11 +156,11 @@ function MemberDashboard({ stats, navigate, subscription }) {
               )}
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-inner">
-              <Award className="h-6 w-6" />
+              <i className="fi fi-rs-badge text-2xl leading-none" aria-hidden="true" />
             </div>
           </div>
         </div>
-        <StatsCard title="Active Loans" value={stats?.activeIssues ?? 0} icon={BookMarked} color="blue" trend="Currently borrowed" />
+        <StatsCard title="Active Loans" value={stats?.activeIssues ?? 0} icon={() => <i className="fi fi-sr-book-bookmark text-2xl leading-none" aria-hidden />} color="blue" trend="Currently borrowed" />
         <StatsCard title="Due Soon" value={stats?.dueSoon ?? 0} icon={Clock} color="amber" trend="Return within 3 days" />
         <StatsCard title="Reservations" value={stats?.reservations ?? 0} icon={CalendarClock} color="violet" trend="Pending pickups" />
         <StatsCard title="Outstanding Fines" value={stats?.outstandingFines ?? 0} icon={DollarSign} color="rose" trend="Overdue charges" />
@@ -238,21 +224,21 @@ export default function Dashboard() {
   const role = useSelector(selectUserRole)
   const [stats, setStats] = useState(null)
   const [adminStats, setAdminStats] = useState(null)
-  const [subscription, setSubscription] = useState(null)
+  const [membershipSummary, setMembershipSummary] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
     const loadData = async () => {
       try {
-        const promises = [dashboardService.getStats(), userSubscriptionService.getActive()]
+        const promises = [dashboardService.getStats(), userSubscriptionService.getSummary()]
         if (role === 'ADMIN') promises.push(adminDashboardService.getDashboard())
         const results = await Promise.allSettled(promises)
         if (!cancelled) {
-          const [statsResult, subResult] = results
+          const [statsResult, summaryResult] = results
           if (statsResult.status === 'fulfilled') setStats(statsResult.value)
           else toast.error(getApiErrorMessage(statsResult.reason))
-          if (subResult.status === 'fulfilled' && subResult.value) setSubscription(subResult.value)
+          if (summaryResult.status === 'fulfilled' && summaryResult.value) setMembershipSummary(summaryResult.value)
           if (results.length > 2 && results[2].status === 'fulfilled') setAdminStats(results[2].value)
         }
       } catch (e) {
@@ -271,20 +257,6 @@ export default function Dashboard() {
       window.removeEventListener('focus', onRefresh)
     }
   }, [role])
-
-  const chart = useMemo(() => {
-    const recent = stats?.recentIssues || []
-    const labels = ['W-4', 'W-3', 'W-2', 'W-1', 'This week']
-    const buckets = [0, 0, 0, 0, 0]
-    const today = new Date()
-    recent.forEach((issue) => {
-      const d = new Date(issue.issueDate)
-      const diffDays = Math.floor((today - d) / (1000 * 60 * 60 * 24))
-      const weekIndex = Math.min(4, Math.max(0, Math.floor(diffDays / 7)))
-      buckets[4 - weekIndex] += 1
-    })
-    return { values: buckets, labels }
-  }, [stats])
 
   if (!user) {
     return <GuestHome />
@@ -341,24 +313,11 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {role === 'ADMIN' && <AdminDashboard stats={adminStats || stats} navigate={navigate} />}
-      {role === 'MEMBER' && <MemberDashboard stats={stats} navigate={navigate} subscription={subscription} />}
+      {role === 'ADMIN' && <AdminDashboard stats={adminStats || stats} />}
+      {role === 'MEMBER' && <MemberDashboard stats={stats} navigate={navigate} summary={membershipSummary} />}
 
       {role === 'ADMIN' && (
-        <section className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Issuance trend</h2>
-                <p className="text-sm text-gray-500">Approximated weekly buckets from recent activity</p>
-              </div>
-              <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700 dark:bg-primary-950 dark:text-primary-100">
-                Live data
-              </span>
-            </div>
-            <BarChart values={chart.values} labels={chart.labels} />
-          </div>
-
+        <section>
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Quick actions</h2>
             <p className="text-sm text-gray-500">Shortcuts to frequent workflows</p>

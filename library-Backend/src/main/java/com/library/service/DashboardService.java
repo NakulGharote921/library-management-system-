@@ -1,18 +1,21 @@
 package com.library.service;
 
 import com.library.dto.DashboardStatsDto;
+import com.library.dto.HomeStatsDto;
 import com.library.entity.Fine;
 import com.library.entity.IssuedBook;
 import com.library.entity.Reservation;
 import com.library.entity.User;
 import com.library.exception.ResourceNotFoundException;
 import com.library.repository.BookRepository;
+import com.library.repository.CategoryRepository;
 import com.library.repository.FineRepository;
 import com.library.repository.IssuedBookRepository;
 import com.library.repository.ReservationRepository;
 import com.library.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,27 @@ public class DashboardService {
     private final IssuedBookRepository issuedBookRepository;
     private final ReservationRepository reservationRepository;
     private final FineRepository fineRepository;
+    private final CategoryRepository categoryRepository;
+
+    @Value("${app.home.satisfaction:98}")
+    private int satisfactionPercent;
+
+    @Transactional(readOnly = true)
+    public HomeStatsDto getHomeStats() {
+        long books = bookRepository.count();
+        long members = userRepository.countByRole(User.Role.MEMBER);
+        long borrowedBooks = issuedBookRepository.countByStatus(IssuedBook.STATUS_ISSUED);
+        long reservations = reservationRepository.countByStatus(Reservation.STATUS_PENDING);
+        long categories = categoryRepository.count();
+        return HomeStatsDto.builder()
+                .books(books)
+                .members(members)
+                .borrowedBooks(borrowedBooks)
+                .reservations(reservations)
+                .satisfaction(satisfactionPercent)
+                .categories(categories)
+                .build();
+    }
 
     @Transactional(readOnly = true)
     public DashboardStatsDto getDashboardStats() {

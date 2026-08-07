@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -16,12 +17,17 @@ public class SubscriptionPlanService {
 
     private final SubscriptionPlanRepository subscriptionPlanRepository;
 
+    private static final Comparator<SubscriptionPlan> PLAN_ORDER =
+            Comparator.comparingInt(SubscriptionPlan::getDisplayOrder)
+                    .thenComparing(SubscriptionPlan::getPrice);
+
     public List<SubscriptionPlan> getAllPlans() {
-        return subscriptionPlanRepository.findAll();
+        return subscriptionPlanRepository.findAll().stream().sorted(PLAN_ORDER).toList();
     }
 
     public List<SubscriptionPlan> getActivePlans() {
-        return subscriptionPlanRepository.findByStatusOrderByName(SubscriptionPlan.STATUS_ACTIVE);
+        return subscriptionPlanRepository.findByStatus(SubscriptionPlan.STATUS_ACTIVE)
+                .stream().sorted(PLAN_ORDER).toList();
     }
 
     public SubscriptionPlan getPlanById(Long id) {
@@ -51,6 +57,10 @@ public class SubscriptionPlanService {
         existing.setPrice(incoming.getPrice());
         existing.setValidityDays(incoming.getValidityDays());
         existing.setMaxRenewals(incoming.getMaxRenewals());
+        existing.setMaxReservations(incoming.getMaxReservations());
+        existing.setDisplayOrder(incoming.getDisplayOrder());
+        existing.setFeatured(incoming.isFeatured());
+        existing.setFeatures(incoming.getFeatures());
         existing.setPriorityReservation(incoming.isPriorityReservation());
         existing.setFineExempt(incoming.isFineExempt());
         existing.setStatus(incoming.getStatus());

@@ -806,7 +806,7 @@ export default function Users() {
         title={editing ? 'Edit Member' : 'Add Member'}
         onClose={() => setModalOpen(false)}
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
             <Button onClick={saveUser} loading={saving}>{editing ? 'Save Changes' : 'Add Member'}</Button>
           </div>
@@ -1155,7 +1155,7 @@ export default function Users() {
         size="sm"
         onClose={() => setDeleteTarget(null)}
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button>
             <Button variant="danger" onClick={confirmDelete}>Delete</Button>
           </div>

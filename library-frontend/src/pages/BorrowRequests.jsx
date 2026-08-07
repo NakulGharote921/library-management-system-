@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux'
 import {
   Book, CheckCircle2, XCircle, RefreshCw, Clock, Eye, Crown,
-  Search, ChevronLeft, ChevronRight, ShieldAlert, AlertTriangle, Ban, ExternalLink, CalendarClock, X,
+  Search, ShieldAlert, AlertTriangle, Ban, ExternalLink, CalendarClock, X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import { selectUserRole } from '../store/authSlice.js'
 import Button from '../components/Button.jsx'
+import BookCover from '../components/BookCover.jsx'
 import Modal from '../components/Modal.jsx'
+import Pagination from '../components/Pagination.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { borrowRequestService, getApiErrorMessage } from '../services/api.js'
+import { coverOrSlug } from '../utils/bookCovers.js'
 
 const STATUS_LABEL = {
   PENDING: 'Pending',
@@ -93,13 +96,12 @@ function MemberCell({ r }) {
 function BookCell({ r }) {
   return (
     <div className="flex items-center gap-3">
-      {r.bookCoverImageUrl ? (
-        <img src={r.bookCoverImageUrl} alt="" className="h-10 w-7 shrink-0 rounded-sm object-cover" />
-      ) : (
-        <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded-sm bg-primary-100 text-primary-600 dark:bg-primary-950">
-          <Book className="h-4 w-4" />
-        </div>
-      )}
+      <BookCover
+        src={coverOrSlug(r.bookCoverImageUrl, r.bookTitle)}
+        alt=""
+        className="h-10 w-7 shrink-0"
+        imgClassName="h-full w-full rounded-sm object-cover"
+      />
       <div className="min-w-0 max-w-xs">
         <p className="truncate font-medium text-gray-900 dark:text-gray-50">{r.bookTitle}</p>
         <p className="truncate text-xs text-gray-500">{r.bookAuthor}</p>
@@ -629,14 +631,7 @@ export default function BorrowRequests() {
             <p className="text-xs text-gray-500">
               Page {currentPage + 1} of {pages}
             </p>
-            <div className="flex gap-2">
-              <Button variant="secondary" size="sm" type="button" disabled={currentPage === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} icon={ChevronLeft}>
-                Prev
-              </Button>
-              <Button variant="secondary" size="sm" type="button" disabled={currentPage >= pages - 1} onClick={() => setPage((p) => Math.min(pages - 1, p + 1))}>
-                Next <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+            <Pagination currentPage={currentPage} totalPages={pages} onChange={setPage} />
           </div>
         )}
       </div>
@@ -648,7 +643,7 @@ export default function BorrowRequests() {
         size="md"
         onClose={() => { setApproveTarget(null); setApproveInfo(null) }}
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" type="button" onClick={() => { setApproveTarget(null); setApproveInfo(null) }}>
               Cancel
             </Button>
@@ -672,13 +667,12 @@ export default function BorrowRequests() {
         ) : (
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
-              {approveInfo.bookCoverImageUrl ? (
-                <img src={approveInfo.bookCoverImageUrl} alt="" className="h-16 w-12 rounded-md object-cover" />
-              ) : (
-                <div className="flex h-16 w-12 items-center justify-center rounded-md bg-primary-100 text-primary-600 dark:bg-primary-950">
-                  <Book className="h-6 w-6" />
-                </div>
-              )}
+              <BookCover
+                src={coverOrSlug(approveInfo.bookCoverImageUrl, approveInfo.bookTitle)}
+                alt=""
+                className="h-16 w-12 shrink-0"
+                imgClassName="h-full w-full rounded-md object-cover"
+              />
               <div className="min-w-0">
                 <p className="font-semibold text-gray-900 dark:text-gray-50">{approveInfo.bookTitle}</p>
                 <p className="text-xs text-gray-500">{approveInfo.bookAuthor}</p>
@@ -753,7 +747,7 @@ export default function BorrowRequests() {
         size="sm"
         onClose={() => setRejectTarget(null)}
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" type="button" onClick={() => setRejectTarget(null)}>
               Cancel
             </Button>
@@ -835,7 +829,7 @@ export default function BorrowRequests() {
         size="sm"
         onClose={() => setCancelTarget(null)}
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" type="button" onClick={() => setCancelTarget(null)}>Keep Request</Button>
             <Button variant="danger" type="button" icon={Ban} loading={cancelling} onClick={handleCancel}>
               Cancel Request
@@ -856,7 +850,7 @@ export default function BorrowRequests() {
         size="md"
         onClose={() => { setDetailRequest(null); setDetailInfo(null) }}
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             {detailRequest?.status === 'APPROVED' && (
               <Button variant="secondary" type="button" icon={ExternalLink} onClick={() => { setDetailRequest(null); navigate('/issued-books') }}>
                 View Loan
@@ -897,13 +891,12 @@ export default function BorrowRequests() {
                   <Book className="h-3.5 w-3.5" /> Book
                 </p>
                 <div className="flex items-center gap-3">
-                  {detailRequest.bookCoverImageUrl ? (
-                    <img src={detailRequest.bookCoverImageUrl} alt="" className="h-14 w-10 rounded-md object-cover" />
-                  ) : (
-                    <div className="flex h-14 w-10 items-center justify-center rounded-md bg-primary-100 text-primary-600 dark:bg-primary-950">
-                      <Book className="h-5 w-5" />
-                    </div>
-                  )}
+                  <BookCover
+                    src={coverOrSlug(detailRequest.bookCoverImageUrl, detailRequest.bookTitle)}
+                    alt=""
+                    className="h-14 w-10 shrink-0"
+                    imgClassName="h-full w-full rounded-md object-cover"
+                  />
                   <div className="min-w-0">
                     <p className="font-semibold text-gray-900 dark:text-gray-50">{detailRequest.bookTitle}</p>
                     <p className="text-xs text-gray-500">{detailRequest.bookAuthor}</p>

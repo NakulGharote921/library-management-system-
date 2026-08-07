@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, Menu, LogIn, UserPlus, Bell, Search, User, Settings, ChevronDown, Shield, CheckCheck } from 'lucide-react'
+import { Menu, LogIn, UserPlus, Mail, ChevronDown, CheckCheck, ShieldCheck } from 'lucide-react'
 import { logout, selectUser, selectUserRole } from '../store/authSlice.js'
 import { toggleSidebar, setTheme, selectUi } from '../store/uiSlice.js'
 import { KODNEST_LOGO_URL } from '../constants/branding.js'
@@ -43,8 +43,6 @@ export default function Navbar() {
   const isDark = theme === 'dark'
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const notifRef = useRef(null)
@@ -88,13 +86,7 @@ export default function Navbar() {
   }
 
   const toggleTheme = () => {
-    const next = isDark ? 'light' : 'dark'
-    dispatch(setTheme(next))
-    if (next === 'dark') {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
+    dispatch(setTheme(isDark ? 'light' : 'dark'))
   }
 
   const handleLogout = () => {
@@ -102,19 +94,18 @@ export default function Navbar() {
     navigate('/login')
   }
 
-  const handleSearch = (e) => {
-    e.preventDefault()
-    if (searchQuery.trim()) {
-      navigate(`/books?search=${encodeURIComponent(searchQuery.trim())}`)
-      setSearchQuery('')
-      setSearchOpen(false)
-    }
-  }
-
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-gradient-to-r from-primary-600 to-primary-800 shadow-lg shadow-primary-900/20 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-3 px-4 py-2.5 lg:px-8">
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+          <button
+            type="button"
+            className="shrink-0 rounded-lg bg-white/10 p-2 text-white ring-1 ring-white/20 transition hover:bg-white/20 md:hidden"
+            aria-label="Open menu"
+            onClick={() => dispatch(toggleSidebar())}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <a
             href="https://kodnest.com"
             target="_blank"
@@ -132,28 +123,17 @@ export default function Navbar() {
             />
           </a>
           <div className="min-w-0 border-l border-white/25 pl-3 sm:pl-4">
-            <p className="truncate text-sm font-bold tracking-tight text-white sm:text-base">Library Management System</p>
+            <p className="truncate text-xs font-bold tracking-tight text-white sm:text-sm lg:text-base">Library Management System</p>
           </div>
-          {searchOpen && (
-            <form onSubmit={handleSearch} className="hidden sm:flex flex-1 max-w-xs">
-              <div className="relative w-full">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/60" />
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search books..."
-                  className="w-full rounded-full border border-white/20 bg-white/10 py-1.5 pl-8 pr-3 text-xs text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
-                  autoFocus
-                  onBlur={() => { if (!searchQuery) setSearchOpen(false) }}
-                />
-              </div>
-            </form>
-          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
           {!user && (
             <div className="hidden items-center gap-2 sm:flex">
+              <Link to="/admin/login" className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/20 px-3 py-1.5 text-xs font-semibold text-purple-100 ring-1 ring-purple-300/40 transition hover:bg-purple-500/30">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Admin Login
+              </Link>
               <Link to="/login" className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/25 transition hover:bg-white/25">
                 <LogIn className="h-3.5 w-3.5" />
                 Sign In
@@ -165,32 +145,24 @@ export default function Navbar() {
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setSearchOpen(!searchOpen)}
-            className="rounded-full bg-white/10 p-2 text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:hidden"
-            aria-label="Search"
-          >
-            <Search className="h-4 w-4" />
-          </button>
-
           {user && (
             <div className="relative" ref={notifRef}>
               <button
                 type="button"
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative rounded-full bg-white/10 p-2 text-white ring-1 ring-white/20 transition hover:bg-white/20"
-                aria-label="Notifications"
+                className="relative inline-flex items-center rounded-xl border border-transparent bg-primary-600 px-4 py-2.5 text-sm font-medium leading-5 text-white shadow-sm focus:outline-none focus:ring-4 focus:ring-primary-400/40 hover:bg-primary-700"
               >
-                <Bell className="h-4 w-4" />
+                <Mail className="-ms-0.5 me-1.5 h-4 w-4" />
+                <span className="sr-only">Notifications</span>
+                {/* Messages */}
                 {unreadCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-primary-700">
+                  <span className="absolute -end-2 -top-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-primary-800 bg-red-500 px-1 text-xs font-bold text-white">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
               {showNotifications && (
-                <div className="absolute right-0 z-50 mt-2 w-80 origin-top-right rounded-2xl border border-gray-100 bg-white py-2 shadow-xl dark:border-gray-700 dark:bg-gray-800">
+                <div className="fixed inset-x-3 top-16 z-50 max-w-[calc(100vw-1.5rem)] origin-top-right rounded-2xl border border-gray-100 bg-white py-2 shadow-xl dark:border-gray-700 dark:bg-gray-800 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:max-w-none sm:w-80">
                   <div className="flex items-center justify-between px-4 py-1">
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Notifications</p>
                     {unreadCount > 0 && (
@@ -257,9 +229,9 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-white ring-1 ring-white/20 transition hover:bg-white/20"
+                className="flex cursor-pointer items-center gap-2 rounded-full bg-white/10 p-1 text-white ring-1 ring-white/20 transition hover:bg-white/20 sm:pr-2"
               >
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold text-white">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-primary-600 text-sm font-bold text-white ring-2 ring-white/30">
                   {user.name?.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
                 <span className="hidden text-xs font-medium sm:inline">{user.name}</span>
@@ -271,34 +243,37 @@ export default function Navbar() {
                 <ChevronDown className="h-3 w-3 text-white/70" />
               </button>
               {showProfileMenu && (
-                <div className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-xl border border-gray-100 bg-white py-1 shadow-xl dark:border-gray-700 dark:bg-gray-800">
-                  <div className="border-b border-gray-100 px-4 py-2 dark:border-gray-700">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-50">{user.name}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                <div className="absolute right-0 z-50 mt-2 w-44 origin-top-right rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  <div className="border-b border-gray-100 px-4 py-3 text-sm text-gray-900 dark:border-gray-700 dark:text-gray-50">
+                    <div className="font-medium">{user.name}</div>
+                    <div className="truncate text-gray-500 dark:text-gray-400">{user.email}</div>
                   </div>
-                  <button type="button" onClick={() => { navigate('/profile'); setShowProfileMenu(false) }} className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
-                    <User className="h-4 w-4" /> Profile
-                  </button>
-                  <button type="button" onClick={() => { navigate('/settings'); setShowProfileMenu(false) }} className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
-                    <Settings className="h-4 w-4" /> Settings
-                  </button>
-                  <hr className="my-1 border-gray-100 dark:border-gray-700" />
-                  <button type="button" onClick={handleLogout} className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
-                    <LogOut className="h-4 w-4" /> Logout
-                  </button>
+                  <ul className="p-2 text-sm font-medium text-gray-600 dark:text-gray-300" aria-labelledby="avatarButton">
+                    <li>
+                      <button type="button" onClick={() => { navigate('/'); setShowProfileMenu(false) }} className="block w-full rounded-md p-2 text-left transition hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-50">
+                        Dashboard
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" onClick={() => { navigate('/profile'); setShowProfileMenu(false) }} className="block w-full rounded-md p-2 text-left transition hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-50">
+                        Profile
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" onClick={() => { navigate('/settings'); setShowProfileMenu(false) }} className="block w-full rounded-md p-2 text-left transition hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-gray-50">
+                        Settings
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" onClick={handleLogout} className="block w-full rounded-md p-2 text-left text-red-600 transition hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-700">
+                        Sign out
+                      </button>
+                    </li>
+                  </ul>
                 </div>
               )}
             </div>
           )}
-
-          <button
-            type="button"
-            className="rounded-lg bg-white/10 p-2 text-white ring-1 ring-white/20 lg:hidden"
-            aria-label="Open menu"
-            onClick={() => dispatch(toggleSidebar())}
-          >
-            <Menu className="h-4 w-4" />
-          </button>
         </div>
       </div>
     </header>

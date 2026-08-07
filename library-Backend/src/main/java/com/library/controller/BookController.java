@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.security.Principal;
 import java.util.List;
@@ -72,6 +73,18 @@ public class BookController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{id}/cover")
+    public ResponseEntity<Book> uploadCover(@PathVariable Long id,
+                                            @RequestParam("file") MultipartFile file,
+                                            Authentication auth) {
+        User user = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User", auth.getName()));
+        if (user.getRole() != User.Role.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(bookService.uploadCover(id, file));
+    }
+
     @GetMapping("/search")
     public List<Book> searchBooks(@RequestParam String keyword) {
         return bookService.searchBooks(keyword);
@@ -80,6 +93,11 @@ public class BookController {
     @GetMapping("/available")
     public List<Book> availableBooks() {
         return bookService.getAvailableBooks();
+    }
+
+    @GetMapping("/by-category/{categoryId}")
+    public List<Book> getBooksByCategory(@PathVariable Long categoryId) {
+        return bookService.findByCategoryId(categoryId);
     }
 
     @PostMapping("/{bookId}/borrow")

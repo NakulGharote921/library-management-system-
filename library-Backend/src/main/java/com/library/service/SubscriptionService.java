@@ -1,10 +1,14 @@
 package com.library.service;
 
+import com.library.dto.MembershipSummaryDto;
+import com.library.entity.IssuedBook;
 import com.library.entity.SubscriptionPlan;
 import com.library.entity.User;
 import com.library.entity.UserSubscription;
 import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
+import com.library.repository.IssuedBookRepository;
+import com.library.repository.UserRepository;
 import com.library.repository.UserSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,10 +27,37 @@ public class SubscriptionService {
 
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionPlanService planService;
+    private final UserRepository userRepository;
+    private final IssuedBookRepository issuedBookRepository;
 
     @Transactional(readOnly = true)
     public Optional<UserSubscription> getActiveSubscription(User user) {
         return userSubscriptionRepository.findTopByUserAndStatusOrderByEndDateDesc(user, UserSubscription.STATUS_ACTIVE);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<MembershipSummaryDto> getMembershipSummary(User user) {
+        Optional<UserSubscription> active = getActiveSubscription(user);
+        if (active.isEmpty()) {
+            active = userSubscriptionRepository.findTopByUserAndStatusOrderByEndDateDesc(user, UserSubscription.STATUS_EXPIRING);
+        }
+        if (active.isEmpty()) {
+            return Optional.empty();
+        }
+        UserSubscription sub = active.get();
+        SubscriptionPlan plan = sub.getPlan();
+        long borrowed = issuedBookRepository.countByUser_IdAndStatus(user.getId(), IssuedBook.STATUS_ISSUED);
+        long daysRemaining = Math.max(0, ChronoUnit.DAYS.between(LocalDate.now(), sub.getEndDate()));
+        return Optional.of(MembershipSummaryDto.builder()
+                .membershipName(plan.getName())
+                .status(sub.getStatus())
+                .allowedBooks(plan.getMaxBooks())
+                .borrowedBooks((int) borrowed)
+                .remainingBooks(Math.max(0, plan.getMaxBooks() - (int) borrowed))
+                .startDate(sub.getStartDate())
+                .expiryDate(sub.getEndDate())
+                .daysRemaining(daysRemaining)
+                .build());
     }
 
     public boolean hasActiveSubscription(User user) {

@@ -1,0 +1,15 @@
+# Railway deploy configuration for the Spring Boot backend.
+# Deploy this service with root directory: library-Backend
+# Then in Railway, reference the MySQL service from the app's Variables tab
+# so MYSQLHOST / MYSQLPORT / MYSQLUSER / MYSQLPASSWORD / MYSQLDATABASE are injected.
+
+[build]
+builder = "RAILPACK"
+buildCommand = "chmod +x mvnw && ./mvnw clean package -DskipTests"
+watchPatterns = ["src/**", "pom.xml", "railway.toml"]
+
+[deploy]
+startCommand = "java -Dspring.profiles.active=railway -Dserver.port=8081 -jar target/library-management-1.0.0.jar"
+healthcheckPath = "/actuator/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
