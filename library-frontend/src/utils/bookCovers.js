@@ -2,7 +2,7 @@ import { API_BASE_URL } from '../services/api.js'
 
 export const DEFAULT_COVER = '/book-covers/default-book.jpeg'
 
-const API_ORIGIN = API_BASE_URL && API_BASE_URL !== '/api' ? API_BASE_URL : ''
+const API_ORIGIN = API_BASE_URL && API_BASE_URL !== '/api' ? API_BASE_URL.replace(/\/api\/?$/, '') : ''
 
 export function resolveCoverUrl(url) {
   if (!url) return DEFAULT_COVER

@@ -2,8 +2,8 @@ import axios from 'axios'
 
 function apiBaseUrl() {
   const env = import.meta.env.VITE_API_BASE_URL?.trim()
-  if (env) return env.replace(/\/$/, '')
-  return 'https://library-management-system-2-8ydp.onrender.com'
+  const base = (env || 'https://library-management-system-2-8ydp.onrender.com').replace(/\/$/, '')
+  return base.endsWith('/api') ? base : `${base}/api`
 }
 
 export const API_BASE_URL = apiBaseUrl()
