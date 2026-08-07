@@ -244,14 +244,14 @@ export function SuccessOverlay({ title = 'Account created!', subtitle = 'Redirec
 }
 
 export function SocialButtons() {
-  const [googleEnabled, setGoogleEnabled] = useState(false)
+  const [googleEnabled, setGoogleEnabled] = useState(true)
 
   useEffect(() => {
     let cancelled = false
     authService
       .config()
       .then((cfg) => {
-        if (!cancelled) setGoogleEnabled(Boolean(cfg?.googleOAuthEnabled))
+        if (!cancelled && cfg && cfg.googleOAuthEnabled === false) setGoogleEnabled(false)
       })
       .catch(() => {})
     return () => {
