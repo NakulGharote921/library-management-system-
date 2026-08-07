@@ -244,6 +244,23 @@ export function SuccessOverlay({ title = 'Account created!', subtitle = 'Redirec
 }
 
 export function SocialButtons() {
+  const [googleEnabled, setGoogleEnabled] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    authService
+      .config()
+      .then((cfg) => {
+        if (!cancelled) setGoogleEnabled(Boolean(cfg?.googleOAuthEnabled))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (!googleEnabled) return null
+
   return (
     <div className="grid gap-3">
       <a

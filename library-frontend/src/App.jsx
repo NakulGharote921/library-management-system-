@@ -54,7 +54,7 @@ function AuthInit({ children }) {
 
   return children
 }
-
+   
 function HomeGate() {
   const isAuthenticated = useSelector(selectIsAuthenticated)
   return isAuthenticated ? <Dashboard /> : <Navigate to="/home" replace />

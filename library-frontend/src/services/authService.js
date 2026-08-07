@@ -10,5 +10,6 @@ export const authService = {
   login: (email, password) => api.post('/auth/login', { email, password }).then((r) => r.data),
   register: (name, email, password) => api.post('/auth/register', { name, email, password }).then((r) => r.data),
   me: () => api.get('/auth/me').then((r) => r.data),
+  config: () => api.get('/auth/config').then((r) => r.data),
   googleLoginUrl: () => `${backendOrigin()}/oauth2/authorization/google`,
 }
