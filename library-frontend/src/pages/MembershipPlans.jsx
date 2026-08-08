@@ -54,7 +54,7 @@ export default function MembershipPlans() {
       const sub = await userSubscriptionService.purchase(planId)
       const order = await paymentService.createSubscriptionOrder(sub.id)
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNDP3B2d4nerAJ',
         amount: order.amount * 100,
         currency: order.currency || 'INR',
         name: 'Library Management',
