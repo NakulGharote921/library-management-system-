@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
-import { Award, Check, Edit3, Plus, RefreshCw, Trash2, X } from 'lucide-react'
+import { Award, Check, Edit3, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { selectUserRole } from '../store/authSlice.js'
 import Button from '../components/Button.jsx'
 import Modal from '../components/Modal.jsx'
@@ -10,8 +10,8 @@ import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { getApiErrorMessage, subscriptionService, userSubscriptionService } from '../services/api.js'
 
 const emptyPlan = {
-  name: '', description: '', maxBooks: 3, maxLoanDays: 14,
-  price: 0, validityDays: 30, maxRenewals: 0, maxReservations: 2,
+  name: '', description: '', maxBooks: '', maxLoanDays: '',
+  price: 0, validityDays: '', maxRenewals: 0, maxReservations: 0,
   priorityReservation: false, fineExempt: false, featured: false,
   displayOrder: 0, status: 'ACTIVE', features: '',
 }
