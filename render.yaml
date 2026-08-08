@@ -13,7 +13,8 @@ services:
       #   SPRING_DATASOURCE_PASSWORD
       #   JWT_SECRET                 min 32 characters
       #   JWT_EXPIRATION             optional, default 86400000 (24h)
-      #   FRONTEND_URL               e.g. https://your-app.vercel.app
+      #   FRONTEND_URL               e.g. https://your-app.vercel.app  (must be the EXACT live Vercel origin)
+      #   CORS_ALLOWED_ORIGINS       optional; comma-separated override for the CORS allow-list
       #   RAZORPAY_KEY_ID            optional unless payments are used
       #   RAZORPAY_KEY_SECRET        optional unless payments are used
       #   GOOGLE_CLIENT_ID           optional (disables Google OAuth when unset)
