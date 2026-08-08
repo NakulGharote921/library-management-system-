@@ -16,6 +16,31 @@ const emptyPlan = {
   displayOrder: 0, status: 'ACTIVE', features: '',
 }
 
+function Toggle({ checked, onChange, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="group flex items-center gap-2.5 text-sm font-medium text-gray-700 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+    >
+      <span
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ${
+          checked ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-700'
+        }`}
+      >
+        <span
+          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+            checked ? 'translate-x-5' : 'translate-x-0.5'
+          }`}
+        />
+      </span>
+      {label}
+    </button>
+  )
+}
+
 export default function Subscriptions() {
   const role = useSelector(selectUserRole)
   const isAdmin = role === 'ADMIN'
@@ -72,8 +97,8 @@ export default function Subscriptions() {
       maxBooks: plan.maxBooks, maxLoanDays: plan.maxLoanDays,
       price: plan.price, validityDays: plan.validityDays,
       maxRenewals: plan.maxRenewals, maxReservations: plan.maxReservations ?? 0,
-      priorityReservation: plan.priorityReservation,
-      fineExempt: plan.fineExempt,
+      priorityReservation: Boolean(plan.priorityReservation),
+      fineExempt: Boolean(plan.fineExempt),
       featured: Boolean(plan.featured),
       displayOrder: plan.displayOrder ?? 0,
       status: plan.status || 'ACTIVE',
@@ -330,19 +355,10 @@ export default function Subscriptions() {
               />
             </label>
           </div>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 md:col-span-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.priorityReservation} onChange={(e) => setField('priorityReservation', e.target.checked)} />
-              Priority reservations
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.fineExempt} onChange={(e) => setField('fineExempt', e.target.checked)} />
-              Fine exempt
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.featured} onChange={(e) => setField('featured', e.target.checked)} />
-              Featured (Most Popular)
-            </label>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 md:col-span-2">
+            <Toggle checked={Boolean(form.priorityReservation)} onChange={(v) => setField('priorityReservation', v)} label="Priority reservations" />
+            <Toggle checked={Boolean(form.fineExempt)} onChange={(v) => setField('fineExempt', v)} label="Fine exempt" />
+            <Toggle checked={Boolean(form.featured)} onChange={(v) => setField('featured', v)} label="Featured (Most Popular)" />
           </div>
         </div>
       </Modal>
