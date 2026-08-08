@@ -4,18 +4,23 @@ import com.library.entity.SubscriptionPlan;
 import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
 import com.library.repository.SubscriptionPlanRepository;
+import com.library.repository.UserSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SubscriptionPlanService {
 
     private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final UserSubscriptionRepository userSubscriptionRepository;
 
     private static final Comparator<SubscriptionPlan> PLAN_ORDER =
             Comparator.comparingInt(SubscriptionPlan::getDisplayOrder)
@@ -45,6 +50,7 @@ public class SubscriptionPlanService {
 
     @Transactional
     public SubscriptionPlan updatePlan(Long id, SubscriptionPlan incoming) {
+        log.info("Updating membership plan id={}", id);
         SubscriptionPlan existing = getPlanById(id);
         if (!existing.getName().equalsIgnoreCase(incoming.getName())
                 && subscriptionPlanRepository.existsByName(incoming.getName())) {
@@ -64,13 +70,22 @@ public class SubscriptionPlanService {
         existing.setPriorityReservation(incoming.isPriorityReservation());
         existing.setFineExempt(incoming.isFineExempt());
         existing.setStatus(incoming.getStatus());
-        return subscriptionPlanRepository.save(existing);
+        SubscriptionPlan saved = subscriptionPlanRepository.save(existing);
+        log.info("Membership plan id={} updated", id);
+        return saved;
     }
 
     @Transactional
     public void deletePlan(Long id) {
+        log.info("Deleting membership plan id={}", id);
         SubscriptionPlan plan = getPlanById(id);
+        if (userSubscriptionRepository.existsByPlanId(id)) {
+            log.warn("Membership plan id={} is referenced by member subscriptions; refusing to delete", id);
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "This membership plan is currently assigned to members and cannot be deleted. Deactivate it from Edit instead.");
+        }
         plan.setStatus(SubscriptionPlan.STATUS_RETIRED);
         subscriptionPlanRepository.save(plan);
+        log.info("Membership plan id={} retired", id);
     }
 }

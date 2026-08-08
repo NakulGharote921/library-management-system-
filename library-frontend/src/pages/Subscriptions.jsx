@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
-import { Award, BookMarked, BookOpen, CalendarDays, Check, Edit3, Plus, RefreshCcw, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
+import { Archive, Award, BookMarked, BookOpen, CalendarDays, Check, Edit3, Plus, RefreshCcw, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import { selectUserRole } from '../store/authSlice.js'
 import Button from '../components/Button.jsx'
 import Modal from '../components/Modal.jsx'
@@ -51,6 +51,8 @@ export default function Subscriptions() {
   const [form, setForm] = useState(emptyPlan)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -114,42 +116,74 @@ export default function Subscriptions() {
       setErrors(e)
       return
     }
+    if (editing && !editing.id) {
+      toast.error('Invalid membership plan ID')
+      return
+    }
     setSaving(true)
     try {
       const payload = {
-        ...form,
-        price: Number(form.price),
+        name: form.name.trim(),
+        description: (form.description || '').trim(),
         maxBooks: Number(form.maxBooks),
         maxLoanDays: Number(form.maxLoanDays),
+        price: Number(form.price),
         validityDays: Number(form.validityDays),
         maxRenewals: Number(form.maxRenewals),
         maxReservations: Number(form.maxReservations),
         displayOrder: Number(form.displayOrder),
         featured: Boolean(form.featured),
         status: form.status,
+        priorityReservation: Boolean(form.priorityReservation),
+        fineExempt: Boolean(form.fineExempt),
         features: typeof form.features === 'string' ? form.features.trim() : form.features,
       }
       if (editing) {
-        await subscriptionService.updatePlan(editing.id, { ...editing, ...payload })
-        toast.success('Plan updated')
+        await subscriptionService.updatePlan(editing.id, payload)
+        toast.success('Membership plan updated successfully')
       } else {
         await subscriptionService.createPlan(payload)
-        toast.success('Plan created')
+        toast.success('Membership plan created successfully')
       }
       setModalOpen(false)
       load()
     } catch (e) {
-      toast.error(getApiErrorMessage(e))
+      if (e?.response?.status === 404) toast.error('Membership plan not found. It may have been removed.')
+      else if (e?.response?.status === 403) toast.error('You do not have permission to modify membership plans.')
+      else if (e?.response?.status === 409) toast.error(e?.response?.data?.message || 'Plan name already exists.')
+      else toast.error(getApiErrorMessage(e))
     } finally {
       setSaving(false)
     }
   }
 
-  const handleDelete = async (plan) => {
-    if (!confirm(`Retire plan "${plan.name}"?`)) return
+  const handleDelete = async () => {
+    if (!deleteTarget?.id) return
+    setDeleting(true)
     try {
-      await subscriptionService.deletePlan(plan.id)
-      toast.success('Plan retired')
+      await subscriptionService.deletePlan(deleteTarget.id)
+      toast.success('Membership plan deleted successfully')
+      setDeleteTarget(null)
+      load()
+    } catch (e) {
+      if (e?.response?.status === 409) {
+        toast.error('Cannot delete this plan because it is currently being used. Deactivate it from Edit instead.')
+      } else if (e?.response?.status === 404) {
+        toast.error('Membership plan not found. It may have been removed.')
+      } else if (e?.response?.status === 403) {
+        toast.error('You do not have permission to delete membership plans.')
+      } else {
+        toast.error(getApiErrorMessage(e))
+      }
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const reactivate = async (plan) => {
+    try {
+      await subscriptionService.updatePlan(plan.id, { ...plan, status: 'ACTIVE' })
+      toast.success(`Plan "${plan.name}" reactivated`)
       load()
     } catch (e) {
       toast.error(getApiErrorMessage(e))
@@ -178,6 +212,9 @@ export default function Subscriptions() {
     return 'bg-gray-300'
   }
 
+  const visiblePlans = plans.filter((plan) => plan.status !== 'RETIRED')
+  const retiredPlans = plans.filter((plan) => plan.status === 'RETIRED')
+
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
@@ -195,7 +232,7 @@ export default function Subscriptions() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 3 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
-      ) : plans.length === 0 ? (
+      ) : visiblePlans.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-800 dark:bg-gray-900">
           <Award className="h-10 w-10 text-gray-400" />
           <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">No plans defined</p>
@@ -203,7 +240,7 @@ export default function Subscriptions() {
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {plans.map((plan) => {
+          {visiblePlans.map((plan) => {
             const isPopular = Boolean(plan.featured)
             const customFeatures = typeof plan.features === 'string'
               ? plan.features.split(/\r?\n/).map((f) => f.trim()).filter(Boolean)
@@ -234,9 +271,9 @@ export default function Subscriptions() {
                         </button>
                         <button
                           type="button"
-                          title="Retire plan"
-                          aria-label="Retire plan"
-                          onClick={() => handleDelete(plan)}
+                          title="Delete plan"
+                          aria-label="Delete plan"
+                          onClick={() => setDeleteTarget(plan)}
                           className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -338,6 +375,31 @@ export default function Subscriptions() {
         </div>
       )}
 
+      {isAdmin && retiredPlans.length > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            <Archive className="h-4 w-4" /> Retired Plans ({retiredPlans.length})
+          </h2>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            Retired plans are hidden from members but kept for historical subscriptions and payments.
+          </p>
+          <ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+            {retiredPlans.map((plan) => (
+              <li key={plan.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 dark:text-gray-50">{plan.name}</p>
+                  <p className="text-xs text-gray-400">₹{plan.price} / {plan.validityDays} days · Retired</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => openEdit(plan)}>Edit</Button>
+                  <Button size="sm" onClick={() => reactivate(plan)}>Reactivate</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -394,6 +456,31 @@ export default function Subscriptions() {
             <Toggle checked={Boolean(form.fineExempt)} onChange={(v) => setField('fineExempt', v)} label="Fine exempt" />
             <Toggle checked={Boolean(form.featured)} onChange={(v) => setField('featured', v)} label="Featured (Most Popular)" />
           </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Membership Plan?"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" type="button" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button type="button" variant="danger" loading={deleting} onClick={handleDelete}>
+              Delete Plan
+            </Button>
+          </div>
+        }
+      >
+        <div className="py-2">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-gray-50">{deleteTarget?.name}</span>?
+          </p>
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+            This action cannot be undone. The plan will be retired and hidden from members, but historical subscriptions and payments will be preserved.
+          </p>
         </div>
       </Modal>
     </div>

@@ -29,4 +29,6 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
                                                       @Param("to") LocalDate to);
 
     long countByUserAndStatus(User user, String status);
+
+    boolean existsByPlanId(Long planId);
 }
