@@ -63,9 +63,7 @@ function HomeGate() {
 export default function App() {
   return (
     <Provider store={store}>
-      <h1 className='bg-black'>
-        NAkul
-      </h1>
+     
       <BrowserRouter>
         <AuthInit>
         <ThemeSync />
