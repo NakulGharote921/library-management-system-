@@ -76,16 +76,33 @@ public class SubscriptionPlanService {
     }
 
     @Transactional
+    public void retirePlan(Long id) {
+        log.info("Retiring membership plan id={}", id);
+        SubscriptionPlan plan = getPlanById(id);
+        plan.setStatus(SubscriptionPlan.STATUS_RETIRED);
+        subscriptionPlanRepository.save(plan);
+        log.info("Membership plan id={} retired", id);
+    }
+
+    @Transactional
+    public void activatePlan(Long id) {
+        log.info("Activating membership plan id={}", id);
+        SubscriptionPlan plan = getPlanById(id);
+        plan.setStatus(SubscriptionPlan.STATUS_ACTIVE);
+        subscriptionPlanRepository.save(plan);
+        log.info("Membership plan id={} activated", id);
+    }
+
+    @Transactional
     public void deletePlan(Long id) {
         log.info("Deleting membership plan id={}", id);
         SubscriptionPlan plan = getPlanById(id);
         if (userSubscriptionRepository.existsByPlanId(id)) {
             log.warn("Membership plan id={} is referenced by member subscriptions; refusing to delete", id);
             throw new BusinessException(HttpStatus.CONFLICT,
-                    "This membership plan is currently assigned to members and cannot be deleted. Deactivate it from Edit instead.");
+                    "This membership plan is currently assigned to members and cannot be deleted. Retire it instead.");
         }
-        plan.setStatus(SubscriptionPlan.STATUS_RETIRED);
-        subscriptionPlanRepository.save(plan);
-        log.info("Membership plan id={} retired", id);
+        subscriptionPlanRepository.delete(plan);
+        log.info("Membership plan id={} permanently deleted", id);
     }
 }

@@ -195,6 +195,8 @@ export const subscriptionService = {
   getPlan: (id) => api.get(`/subscription-plans/${id}`).then((r) => r.data),
   createPlan: (payload) => api.post('/subscription-plans', payload).then((r) => r.data),
   updatePlan: (id, payload) => api.put(`/subscription-plans/${id}`, payload).then((r) => r.data),
+  retirePlan: (id) => api.post(`/subscription-plans/${id}/retire`),
+  activatePlan: (id) => api.post(`/subscription-plans/${id}/activate`),
   deletePlan: (id) => api.delete(`/subscription-plans/${id}`),
 }
 

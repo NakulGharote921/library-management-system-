@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
 import { Archive, Award, BookMarked, BookOpen, CalendarDays, Check, Edit3, Plus, RefreshCcw, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
@@ -51,8 +51,12 @@ export default function Subscriptions() {
   const [form, setForm] = useState(emptyPlan)
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const [retireTarget, setRetireTarget] = useState(null)
+  const [retiring, setRetiring] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const retireDialogRef = useRef(null)
+  const deleteDialogRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -157,6 +161,34 @@ export default function Subscriptions() {
     }
   }
 
+  const confirmRetire = (plan) => {
+    setRetireTarget(plan)
+    retireDialogRef.current?.showModal()
+  }
+
+  const handleRetire = async () => {
+    if (!retireTarget?.id) return
+    setRetiring(true)
+    try {
+      await subscriptionService.retirePlan(retireTarget.id)
+      toast.success('Plan retired — no longer available for new subscriptions')
+      setRetireTarget(null)
+      retireDialogRef.current?.close()
+      load()
+    } catch (e) {
+      if (e?.response?.status === 403) toast.error('You do not have permission to manage membership plans.')
+      else if (e?.response?.status === 404) toast.error('Membership plan not found. It may have been removed.')
+      else toast.error(getApiErrorMessage(e))
+    } finally {
+      setRetiring(false)
+    }
+  }
+
+  const confirmDelete = (plan) => {
+    setDeleteTarget(plan)
+    deleteDialogRef.current?.showModal()
+  }
+
   const handleDelete = async () => {
     if (!deleteTarget?.id) return
     setDeleting(true)
@@ -164,14 +196,15 @@ export default function Subscriptions() {
       await subscriptionService.deletePlan(deleteTarget.id)
       toast.success('Membership plan deleted successfully')
       setDeleteTarget(null)
+      deleteDialogRef.current?.close()
       load()
     } catch (e) {
       if (e?.response?.status === 409) {
-        toast.error('Cannot delete this plan because it is currently being used. Deactivate it from Edit instead.')
+        toast.error('Cannot delete this plan because it is currently being used. Retire it instead.')
       } else if (e?.response?.status === 404) {
         toast.error('Membership plan not found. It may have been removed.')
       } else if (e?.response?.status === 403) {
-        toast.error('You do not have permission to delete membership plans.')
+        toast.error('You do not have permission to manage membership plans.')
       } else {
         toast.error(getApiErrorMessage(e))
       }
@@ -180,13 +213,14 @@ export default function Subscriptions() {
     }
   }
 
-  const reactivate = async (plan) => {
+  const handleActivate = async (plan) => {
     try {
-      await subscriptionService.updatePlan(plan.id, { ...plan, status: 'ACTIVE' })
-      toast.success(`Plan "${plan.name}" reactivated`)
+      await subscriptionService.activatePlan(plan.id)
+      toast.success(`Plan "${plan.name}" activated`)
       load()
     } catch (e) {
-      toast.error(getApiErrorMessage(e))
+      if (e?.response?.status === 403) toast.error('You do not have permission to manage membership plans.')
+      else toast.error(getApiErrorMessage(e))
     }
   }
 
@@ -271,12 +305,12 @@ export default function Subscriptions() {
                         </button>
                         <button
                           type="button"
-                          title="Delete plan"
-                          aria-label="Delete plan"
-                          onClick={() => setDeleteTarget(plan)}
-                          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
+                          title="Retire plan"
+                          aria-label="Retire plan"
+                          onClick={() => confirmRetire(plan)}
+                          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 transition hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Archive className="h-4 w-4" />
                         </button>
                       </div>
                     )}
@@ -392,7 +426,10 @@ export default function Subscriptions() {
                 </div>
                 <div className="flex gap-2">
                   <Button variant="secondary" size="sm" onClick={() => openEdit(plan)}>Edit</Button>
-                  <Button size="sm" onClick={() => reactivate(plan)}>Reactivate</Button>
+                  <Button size="sm" onClick={() => handleActivate(plan)}>Activate Plan</Button>
+                  <Button variant="danger" size="sm" onClick={() => confirmDelete(plan)}>
+                    <Trash2 className="h-3.5 w-3.5" /> Delete Permanently
+                  </Button>
                 </div>
               </li>
             ))}
@@ -459,30 +496,54 @@ export default function Subscriptions() {
         </div>
       </Modal>
 
-      <Modal
-        open={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
-        title="Delete Membership Plan?"
-        footer={
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" type="button" onClick={() => setDeleteTarget(null)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button type="button" variant="danger" loading={deleting} onClick={handleDelete}>
-              Delete Plan
-            </Button>
-          </div>
-        }
+      <dialog
+        ref={retireDialogRef}
+        onClose={() => setRetireTarget(null)}
+        onClick={(e) => { if (e.target === retireDialogRef.current) retireDialogRef.current.close() }}
+        className="m-auto w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl backdrop:bg-gray-950/50 backdrop:backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900"
       >
-        <div className="py-2">
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-gray-50">{deleteTarget?.name}</span>?
-          </p>
-          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-            This action cannot be undone. The plan will be retired and hidden from members, but historical subscriptions and payments will be preserved.
-          </p>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50">Retire Membership Plan?</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+          {retireTarget ? (
+            <>
+              This will retire <span className="font-semibold text-gray-900 dark:text-gray-50">{retireTarget.name}</span>.
+            </>
+          ) : null}{' '}
+          This plan will no longer be available for new subscriptions. Existing member subscriptions and payment history will not be affected.
+        </p>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" type="button" onClick={() => retireDialogRef.current?.close()} disabled={retiring}>
+            Cancel
+          </Button>
+          <Button type="button" loading={retiring} onClick={handleRetire}>
+            Retire Plan
+          </Button>
         </div>
-      </Modal>
+      </dialog>
+
+      <dialog
+        ref={deleteDialogRef}
+        onClose={() => setDeleteTarget(null)}
+        onClick={(e) => { if (e.target === deleteDialogRef.current) deleteDialogRef.current.close() }}
+        className="m-auto w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl backdrop:bg-gray-950/50 backdrop:backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900"
+      >
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50">Delete Membership Plan?</h3>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+          Are you sure you want to permanently delete{' '}
+          <span className="font-semibold text-gray-900 dark:text-gray-50">{deleteTarget?.name}</span>? This action cannot be undone.
+        </p>
+        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+          Plans that are referenced by any member subscription, payment, or history record cannot be deleted and will be kept as retired.
+        </p>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" type="button" onClick={() => deleteDialogRef.current?.close()} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="danger" type="button" loading={deleting} onClick={handleDelete}>
+            Delete Plan
+          </Button>
+        </div>
+      </dialog>
     </div>
   )
 }
