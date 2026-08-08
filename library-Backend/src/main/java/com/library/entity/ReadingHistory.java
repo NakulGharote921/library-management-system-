@@ -47,6 +47,7 @@ public class ReadingHistory {
     @Column(nullable = false)
     private LocalDate borrowDate;
 
+    @Column(nullable = false)
     private LocalDate dueDate;
 
     private LocalDate returnDate;

@@ -48,10 +48,12 @@ public class BorrowRequest {
     @Column(name = "request_date", nullable = false, updatable = false)
     private LocalDateTime requestDate;
 
-    @Column(name = "borrow_start_date")
+    @NotNull
+    @Column(name = "borrow_start_date", nullable = false)
     private LocalDate borrowStartDate;
 
-    @Column(name = "due_date")
+    @NotNull
+    @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
     @Column(name = "membership_plan_name", length = 100)

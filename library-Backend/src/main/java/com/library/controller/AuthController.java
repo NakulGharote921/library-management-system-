@@ -20,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -73,6 +74,7 @@ public class AuthController {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(User.Role.MEMBER)
                 .active(true)
+                .enrollmentDate(LocalDate.now())
                 .build();
         user = userRepository.save(user);
         log.info("New user registered: {}", user.getEmail());

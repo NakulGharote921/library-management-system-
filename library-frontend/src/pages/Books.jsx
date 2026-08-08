@@ -149,6 +149,10 @@ export default function Books() {
   }
 
   const handleBorrowRequest = async (bookId, startDate, dueDate) => {
+    if (!startDate || !dueDate) {
+      toast.error('Please choose a borrow start date first.')
+      return
+    }
     setBorrowingId(bookId)
     try {
       await borrowRequestService.create(bookId, startDate, dueDate)

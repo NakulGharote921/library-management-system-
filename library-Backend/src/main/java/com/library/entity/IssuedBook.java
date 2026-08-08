@@ -40,6 +40,8 @@ public class IssuedBook {
     @Column(nullable = false)
     private LocalDate issueDate;
 
+    @NotNull
+    @Column(nullable = false)
     private LocalDate dueDate;
 
     private LocalDate returnDate;

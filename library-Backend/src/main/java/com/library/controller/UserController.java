@@ -64,7 +64,9 @@ public class UserController {
         }
         user.setName(incoming.getName());
         user.setPhone(incoming.getPhone());
-        user.setEnrollmentDate(incoming.getEnrollmentDate());
+        if (incoming.getEnrollmentDate() != null) {
+            user.setEnrollmentDate(incoming.getEnrollmentDate());
+        }
         return userRepository.save(user);
     }
 

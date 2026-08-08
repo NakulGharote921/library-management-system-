@@ -33,17 +33,22 @@ public class ReadingHistoryService {
 
     @Transactional
     public void recordBorrow(User user, Book book, IssuedBook issuedBook, String planName) {
+        LocalDate borrowDate = issuedBook.getIssueDate() != null ? issuedBook.getIssueDate() : LocalDate.now();
+        if (issuedBook.getDueDate() == null) {
+            log.warn("IssuedBook id={} has NULL dueDate - reading history would store NULL, refusing", issuedBook.getId());
+            throw new IllegalStateException("Cannot record reading history: loan has no due date");
+        }
         ReadingHistory history = ReadingHistory.builder()
                 .user(user)
                 .book(book)
                 .issuedBook(issuedBook)
-                .borrowDate(issuedBook.getIssueDate() != null ? issuedBook.getIssueDate() : LocalDate.now())
+                .borrowDate(borrowDate)
                 .dueDate(issuedBook.getDueDate())
                 .status(ReadingHistory.STATUS_BORROWED)
                 .membershipPlanName(planName)
                 .build();
         readingHistoryRepository.save(history);
-        log.info("Reading history record created for user id={}, book id={}", user.getId(), book.getId());
+        log.info("Reading history record created for user id={}, book id={}, dueDate={}", user.getId(), book.getId(), issuedBook.getDueDate());
     }
 
     @Transactional
@@ -71,7 +76,8 @@ public class ReadingHistoryService {
     }
 
     @Transactional
-    public void recordReturnWithFine(IssuedBook issuedBook, Fine fine) {        ReadingHistory history = readingHistoryRepository
+    public void recordReturnWithFine(IssuedBook issuedBook, Fine fine) {
+        ReadingHistory history = readingHistoryRepository
                 .findByUserAndIssuedBook(issuedBook.getUser(), issuedBook)
                 .orElse(null);
         if (history == null) return;

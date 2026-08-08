@@ -43,6 +43,7 @@ public class WishlistItem {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(nullable = false)
     @Builder.Default
     private Boolean notifyWhenAvailable = false;
 

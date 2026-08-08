@@ -231,7 +231,7 @@ public class UserService {
                 .email(request.email())
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .phone(request.phone())
-                .enrollmentDate(request.enrollmentDate())
+                .enrollmentDate(request.enrollmentDate() != null ? request.enrollmentDate() : LocalDate.now())
                 .role(request.role() != null ? request.role() : User.Role.MEMBER)
                 .active(true)
                 .status(User.STATUS_ACTIVE)
@@ -253,7 +253,9 @@ public class UserService {
         existing.setName(incoming.name());
         existing.setEmail(incoming.email());
         existing.setPhone(incoming.phone());
-        existing.setEnrollmentDate(incoming.enrollmentDate());
+        if (incoming.enrollmentDate() != null) {
+            existing.setEnrollmentDate(incoming.enrollmentDate());
+        }
         return userRepository.save(existing);
     }
 

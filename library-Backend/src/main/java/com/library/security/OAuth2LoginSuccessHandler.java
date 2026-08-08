@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -55,6 +56,7 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
                     .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                     .role(User.Role.MEMBER)
                     .active(true)
+                    .enrollmentDate(LocalDate.now())
                     .build();
             log.info("New OAuth2 user created: {}", email);
             return userRepository.save(newUser);
