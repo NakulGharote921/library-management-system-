@@ -61,15 +61,42 @@ export default function MembershipPlans() {
       setPurchasing(null)
     }
     try {
-      const sub = await userSubscriptionService.purchase(planId)
-      const order = await paymentService.createSubscriptionOrder(sub.id)
+      let sub
+      try {
+        sub = await userSubscriptionService.purchase(planId)
+      } catch (err) {
+        console.debug('Subscription purchase failed for plan', planId, err)
+        showErrorOnce(getApiErrorMessage(err))
+        finish()
+        load()
+        return
+      }
+      let order
+      try {
+        order = await paymentService.createSubscriptionOrder(sub.id)
+      } catch (err) {
+        console.debug('Order creation failed for subscription', sub.id, err)
+        showErrorOnce('Unable to create payment order. Please try again.')
+        finish()
+        load()
+        return
+      }
+      console.debug('Razorpay order created for subscription', sub.id, { orderId: order.orderId, amount: order.amount, currency: order.currency })
+
+      if (!order.amount || order.amount <= 0) {
+        toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
+        finish()
+        load()
+        return
+      }
+
       const options = {
         key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNDP3B2d4nerAJ',
-        amount: order.amount * 100,
+        amount: order.amount,
         currency: order.currency || 'INR',
         name: 'Library Management',
         description: `${sub.plan?.name || 'Membership'} Plan`,
-        order_id: order.razorpayOrderId,
+        order_id: order.orderId,
         handler: async (response) => {
           if (rzpSettledRef.current) return
           rzpSettledRef.current = true
@@ -81,7 +108,8 @@ export default function MembershipPlans() {
             )
             toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
           } catch (err) {
-            showErrorOnce(getApiErrorMessage(err))
+            console.debug('Payment verification failed for subscription', sub.id, err)
+            showErrorOnce('Payment verification failed. Please contact support.')
           } finally {
             finish()
             load()
@@ -98,7 +126,16 @@ export default function MembershipPlans() {
         prefill: { contact: '', email: '' },
         theme: { color: '#6366f1' },
       }
-      const rzp = new window.Razorpay(options)
+      let rzp
+      try {
+        rzp = new window.Razorpay(options)
+      } catch (err) {
+        console.debug('Razorpay checkout could not be started', err)
+        showErrorOnce('Payment could not be started. Please try again.')
+        finish()
+        load()
+        return
+      }
       rzp.on('payment.failed', (response) => {
         if (rzpSettledRef.current) return
         rzpSettledRef.current = true

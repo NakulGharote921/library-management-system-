@@ -1,5 +1,6 @@
 package com.library.controller;
 
+import com.library.dto.OrderResponseDto;
 import com.library.entity.PaymentTransaction;
 import com.library.entity.User;
 import com.library.exception.BusinessException;
@@ -28,32 +29,32 @@ public class PaymentController {
     private final UserRepository userRepository;
 
 @PostMapping("/create-order")
-    public ResponseEntity<PaymentTransaction> createOrder(Authentication auth,
+    public ResponseEntity<OrderResponseDto> createOrder(Authentication auth,
                                                             @RequestBody Map<String, Object> body) {
         User user = userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("User", auth.getName()));
         Long fineId = parseLong(body.get("fineId"));
         if (fineId == null) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().build();
         }
         String paymentType = parseString(body.get("paymentType"), PaymentTransaction.TYPE_FINE);
         log.info("User {} creating payment order for fine id={}", user.getEmail(), fineId);
-        PaymentTransaction transaction = paymentService.createOrder(user, fineId, paymentType);
-        return ResponseEntity.ok(transaction);
+        OrderResponseDto order = paymentService.createOrder(user, fineId, paymentType);
+        return ResponseEntity.ok(order);
     }
 
     @PostMapping("/create-subscription-order")
-    public ResponseEntity<PaymentTransaction> createSubscriptionOrder(Authentication auth,
+    public ResponseEntity<OrderResponseDto> createSubscriptionOrder(Authentication auth,
                                                                             @RequestBody Map<String, Object> body) {
         User user = userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("User", auth.getName()));
         Long subscriptionId = parseLong(body.get("subscriptionId"));
         if (subscriptionId == null) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().build();
         }
         log.info("User {} creating subscription payment order for subscription id={}", user.getEmail(), subscriptionId);
-        PaymentTransaction transaction = paymentService.createSubscriptionOrder(user, subscriptionId);
-        return ResponseEntity.ok(transaction);
+        OrderResponseDto order = paymentService.createSubscriptionOrder(user, subscriptionId);
+        return ResponseEntity.ok(order);
     }
 
     @PostMapping("/verify")

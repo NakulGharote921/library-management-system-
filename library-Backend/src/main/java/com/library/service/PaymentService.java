@@ -1,7 +1,9 @@
 package com.library.service;
 
+import com.library.dto.OrderResponseDto;
 import com.library.entity.Fine;
 import com.library.entity.PaymentTransaction;
+import com.library.entity.SubscriptionPlan;
 import com.library.entity.User;
 import com.library.entity.UserSubscription;
 import com.library.exception.BusinessException;
@@ -54,7 +56,7 @@ public class PaymentService {
     private String razorpayWebhookSecret;
 
     @Transactional
-    public PaymentTransaction createOrder(User user, Long fineId, String paymentType) {
+    public OrderResponseDto createOrder(User user, Long fineId, String paymentType) {
         Fine fine = fineService.getFineById(fineId);
         if (!Fine.STATUS_UNPAID.equals(fine.getStatus())) {
             throw new BusinessException(HttpStatus.CONFLICT, "Fine is already paid.");
@@ -63,6 +65,11 @@ public class PaymentService {
         if (!isAdmin && !fine.getUser().getId().equals(user.getId())) {
             throw new BusinessException("Fine does not belong to this user");
         }
+        if (fine.getAmount() == null || fine.getAmount().signum() <= 0) {
+            throw new BusinessException("Invalid fine amount: cannot create payment order");
+        }
+        int amountPaise = fine.getAmount().multiply(BigDecimal.valueOf(100)).intValue();
+        log.info("Fine payment order started: fineId={}, amountPaise={}, currency=INR", fineId, amountPaise);
 
         Optional<PaymentTransaction> active = paymentTransactionRepository
                 .findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES);
@@ -72,17 +79,17 @@ public class PaymentService {
                 throw new BusinessException(HttpStatus.CONFLICT, "Fine is already paid.");
             }
             log.info("Reusing existing pending payment order {} for fine id={}", existing.getRazorpayOrderId(), fineId);
-            return stampKey(existing);
+            return toOrderDto(existing, amountPaise);
         }
 
         try {
             RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
             JSONObject orderRequest = new JSONObject();
-            int amountPaise = fine.getAmount().multiply(BigDecimal.valueOf(100)).intValue();
             orderRequest.put("amount", amountPaise);
             orderRequest.put("currency", "INR");
             orderRequest.put("receipt", paymentType.toLowerCase() + "_" + fineId);
             Order razorpayOrder = client.orders.create(orderRequest);
+            log.info("Razorpay fine order created: orderId={}, amountPaise={}, currency=INR", razorpayOrder.get("id"), amountPaise);
 
             PaymentTransaction transaction = PaymentTransaction.builder()
                     .user(user)
@@ -93,28 +100,62 @@ public class PaymentService {
                     .paymentType(paymentType)
                     .status(PaymentTransaction.STATUS_PENDING)
                     .build();
-            return stampKey(paymentTransactionRepository.save(transaction));
+            return toOrderDto(paymentTransactionRepository.save(transaction), amountPaise);
         } catch (DataIntegrityViolationException e) {
             Optional<PaymentTransaction> concurrent = paymentTransactionRepository
                     .findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES);
             if (concurrent.isPresent()) {
                 log.info("Concurrent order creation detected, reusing existing payment for fine id={}", fineId);
-                return stampKey(concurrent.get());
+                return toOrderDto(concurrent.get(), amountPaise);
             }
             throw e;
         } catch (Exception e) {
+            log.error("Razorpay fine order creation failed: fineId={}, error={}", fineId, e.getMessage());
             throw new BusinessException("Failed to create Razorpay order: " + e.getMessage());
         }
     }
 
     @Transactional
-    public PaymentTransaction createSubscriptionOrder(User user, Long subscriptionId) {
+    public OrderResponseDto createSubscriptionOrder(User user, Long subscriptionId) {
         UserSubscription sub = subscriptionService.getUserSubscriptionById(subscriptionId);
         if (!UserSubscription.STATUS_PENDING.equals(sub.getStatus())) {
             throw new BusinessException("Subscription is not in pending state");
         }
         if (!sub.getUser().getId().equals(user.getId())) {
             throw new BusinessException("Subscription does not belong to this user");
+        }
+
+        SubscriptionPlan plan = sub.getPlan();
+        if (plan == null) {
+            throw new BusinessException("Subscription plan is not configured");
+        }
+        if (plan.getPrice() == null || plan.getValidityDays() <= 0 || plan.getName() == null || plan.getName().isBlank()) {
+            throw new BusinessException("Subscription plan is incomplete: price, validity and name are required");
+        }
+        int amountPaise = plan.getPrice().multiply(BigDecimal.valueOf(100)).intValue();
+        log.info("Subscription order started: planId={}, planName={}, price={}, amountPaise={}, currency=INR",
+                plan.getId(), plan.getName(), plan.getPrice(), amountPaise);
+
+        if (amountPaise <= 0) {
+            log.info("Free plan detected, activating subscription directly: subscriptionId={}, planId={}",
+                    subscriptionId, plan.getId());
+            Optional<PaymentTransaction> existingPaid = paymentTransactionRepository
+                    .findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES);
+            if (existingPaid.isPresent() && PaymentTransaction.STATUS_SUCCESS.equals(existingPaid.get().getStatus())) {
+                throw new BusinessException(HttpStatus.CONFLICT, "Subscription is already paid.");
+            }
+            subscriptionService.activateSubscription(subscriptionId, null, null);
+            PaymentTransaction transaction = PaymentTransaction.builder()
+                    .user(user)
+                    .subscription(sub)
+                    .razorpayOrderId("FREE_" + subscriptionId)
+                    .amount(BigDecimal.ZERO)
+                    .currency("INR")
+                    .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
+                    .status(PaymentTransaction.STATUS_SUCCESS)
+                    .completedAt(LocalDateTime.now())
+                    .build();
+            return toOrderDto(paymentTransactionRepository.save(transaction), 0);
         }
 
         Optional<PaymentTransaction> active = paymentTransactionRepository
@@ -126,44 +167,50 @@ public class PaymentService {
             }
             log.info("Reusing existing pending subscription payment order {} for subscription id={}",
                     existing.getRazorpayOrderId(), subscriptionId);
-            return stampKey(existing);
+            return toOrderDto(existing, amountPaise);
         }
 
         try {
             RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
             JSONObject orderRequest = new JSONObject();
-            int amountPaise = sub.getPlan().getPrice().multiply(BigDecimal.valueOf(100)).intValue();
             orderRequest.put("amount", amountPaise);
             orderRequest.put("currency", "INR");
             orderRequest.put("receipt", "sub_" + subscriptionId);
             Order razorpayOrder = client.orders.create(orderRequest);
+            log.info("Razorpay subscription order created: orderId={}, amountPaise={}, currency=INR",
+                    razorpayOrder.get("id"), amountPaise);
 
             PaymentTransaction transaction = PaymentTransaction.builder()
                     .user(user)
                     .subscription(sub)
                     .razorpayOrderId(razorpayOrder.get("id"))
-                    .amount(sub.getPlan().getPrice())
+                    .amount(plan.getPrice())
                     .currency("INR")
                     .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
                     .status(PaymentTransaction.STATUS_PENDING)
                     .build();
-            return stampKey(paymentTransactionRepository.save(transaction));
+            return toOrderDto(paymentTransactionRepository.save(transaction), amountPaise);
         } catch (DataIntegrityViolationException e) {
             Optional<PaymentTransaction> concurrent = paymentTransactionRepository
                     .findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES);
             if (concurrent.isPresent()) {
                 log.info("Concurrent subscription order creation detected, reusing existing payment for subscription id={}", subscriptionId);
-                return stampKey(concurrent.get());
+                return toOrderDto(concurrent.get(), amountPaise);
             }
             throw e;
         } catch (Exception e) {
+            log.error("Razorpay subscription order creation failed: subscriptionId={}, error={}", subscriptionId, e.getMessage());
             throw new BusinessException("Failed to create Razorpay order: " + e.getMessage());
         }
     }
 
-    private PaymentTransaction stampKey(PaymentTransaction transaction) {
-        transaction.setKeyId(razorpayKeyId);
-        return transaction;
+    private OrderResponseDto toOrderDto(PaymentTransaction transaction, int amountPaise) {
+        return OrderResponseDto.builder()
+                .orderId(transaction.getRazorpayOrderId())
+                .amount(amountPaise)
+                .currency(transaction.getCurrency() == null ? "INR" : transaction.getCurrency())
+                .keyId(razorpayKeyId)
+                .build();
     }
 
     @Transactional

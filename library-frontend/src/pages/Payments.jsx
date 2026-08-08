@@ -166,14 +166,23 @@ export default function Payments() {
       setPayingId(null)
     }
     try {
-      const order = await paymentService.createOrder(fineId)
+      let order
+      try {
+        order = await paymentService.createOrder(fineId)
+      } catch (err) {
+        console.debug('Order creation failed for fine', fineId, err)
+        showErrorOnce('Unable to create payment order. Please try again.')
+        finish()
+        return
+      }
+      console.debug('Razorpay order created for fine', fineId, { orderId: order.orderId, amount: order.amount, currency: order.currency })
       const options = {
         key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNDP3B2d4nerAJ',
-        amount: order.amount * 100,
+        amount: order.amount,
         currency: order.currency || 'INR',
         name: 'Library Management',
         description: `Fine #${fineId}`,
-        order_id: order.razorpayOrderId,
+        order_id: order.orderId,
         handler: async (response) => {
           if (rzpSettledRef.current) return
           rzpSettledRef.current = true
@@ -192,7 +201,8 @@ export default function Payments() {
             )
             toast.success('Payment successful')
           } catch (err) {
-            showErrorOnce(getApiErrorMessage(err))
+            console.debug('Payment verification failed for fine', fineId, err)
+            showErrorOnce('Payment verification failed. Please contact support.')
           } finally {
             finish()
             load(true)
@@ -208,18 +218,26 @@ export default function Payments() {
         prefill: { contact: '', email: '' },
         theme: { color: '#6366f1' },
       }
-      const rzp = new window.Razorpay(options)
+      let rzp
+      try {
+        rzp = new window.Razorpay(options)
+      } catch (err) {
+        console.debug('Razorpay checkout could not be started', err)
+        showErrorOnce('Payment could not be started. Please try again.')
+        finish()
+        return
+      }
       rzp.on('payment.failed', (response) => {
         if (rzpSettledRef.current) return
         rzpSettledRef.current = true
-        const failedOrderId = response?.error?.metadata?.order_id || order.razorpayOrderId
+        const failedOrderId = response?.error?.metadata?.order_id || order.orderId
         paymentService.markFailed(failedOrderId).catch(() => {})
         showErrorOnce(`Payment failed: ${response?.error?.description || 'Payment was not completed'}`)
         finish()
       })
       rzp.open()
     } catch (e) {
-      showErrorOnce(getApiErrorMessage(e))
+      showErrorOnce('Payment could not be started. Please try again.')
       finish()
       load(true)
     }
