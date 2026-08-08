@@ -72,7 +72,7 @@ public class PaymentService {
                 throw new BusinessException(HttpStatus.CONFLICT, "Fine is already paid.");
             }
             log.info("Reusing existing pending payment order {} for fine id={}", existing.getRazorpayOrderId(), fineId);
-            return existing;
+            return stampKey(existing);
         }
 
         try {
@@ -93,13 +93,13 @@ public class PaymentService {
                     .paymentType(paymentType)
                     .status(PaymentTransaction.STATUS_PENDING)
                     .build();
-            return paymentTransactionRepository.save(transaction);
+            return stampKey(paymentTransactionRepository.save(transaction));
         } catch (DataIntegrityViolationException e) {
             Optional<PaymentTransaction> concurrent = paymentTransactionRepository
                     .findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES);
             if (concurrent.isPresent()) {
                 log.info("Concurrent order creation detected, reusing existing payment for fine id={}", fineId);
-                return concurrent.get();
+                return stampKey(concurrent.get());
             }
             throw e;
         } catch (Exception e) {
@@ -126,7 +126,7 @@ public class PaymentService {
             }
             log.info("Reusing existing pending subscription payment order {} for subscription id={}",
                     existing.getRazorpayOrderId(), subscriptionId);
-            return existing;
+            return stampKey(existing);
         }
 
         try {
@@ -147,18 +147,23 @@ public class PaymentService {
                     .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
                     .status(PaymentTransaction.STATUS_PENDING)
                     .build();
-            return paymentTransactionRepository.save(transaction);
+            return stampKey(paymentTransactionRepository.save(transaction));
         } catch (DataIntegrityViolationException e) {
             Optional<PaymentTransaction> concurrent = paymentTransactionRepository
                     .findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES);
             if (concurrent.isPresent()) {
                 log.info("Concurrent subscription order creation detected, reusing existing payment for subscription id={}", subscriptionId);
-                return concurrent.get();
+                return stampKey(concurrent.get());
             }
             throw e;
         } catch (Exception e) {
             throw new BusinessException("Failed to create Razorpay order: " + e.getMessage());
         }
+    }
+
+    private PaymentTransaction stampKey(PaymentTransaction transaction) {
+        transaction.setKeyId(razorpayKeyId);
+        return transaction;
     }
 
     @Transactional

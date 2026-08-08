@@ -78,6 +78,9 @@ public class PaymentTransaction {
 
     private LocalDateTime completedAt;
 
+    @Transient
+    private String keyId;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {

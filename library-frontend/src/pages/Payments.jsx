@@ -168,7 +168,7 @@ export default function Payments() {
     try {
       const order = await paymentService.createOrder(fineId)
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNDP3B2d4nerAJ',
+        key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNDP3B2d4nerAJ',
         amount: order.amount * 100,
         currency: order.currency || 'INR',
         name: 'Library Management',
