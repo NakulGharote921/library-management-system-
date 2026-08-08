@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --border-glow-bg: #ffffff;
+  }
+  .dark {
+    --border-glow-bg: #111827;
+  }
   html {
     scroll-behavior: smooth;
   }

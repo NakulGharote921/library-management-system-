@@ -40,6 +40,7 @@ import {
 import { KODNEST_LOGO_URL } from '../constants/branding.js'
 import DriftWall from '../components/Reactbites/src/component/Reactbites/DriftWall.jsx'
 import MorphSlider from '../components/Reactbites/src/component/Reactbites/MorphSlider.jsx'
+import BorderGlow from '../components/Reactbites/BorderGlow.jsx'
 import { getApiErrorMessage, bookService, subscriptionService } from '../services/api.js'
 import { preferCover, preloadCovers, DEFAULT_COVER } from '../utils/bookCovers.js'
 
@@ -728,23 +729,32 @@ function Testimonials() {
         <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {TESTIMONIALS.map(({ name, role, quote }, i) => (
             <Reveal key={name} delay={(i % 3) * 90}>
-              <figure className="flex h-full flex-col rounded-[20px] border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary-600/5 dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex items-center gap-1 text-amber-400">
-                  {Array.from({ length: 5 }).map((_, s) => (
-                    <Star key={s} className="h-4 w-4 fill-current" />
-                  ))}
-                </div>
-                <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">"{quote}"</blockquote>
-                <figcaption className="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-sky-500 text-xs font-bold text-white">
-                    {name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900 dark:text-gray-50">{name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{role}</p>
+              <BorderGlow
+                className="h-full"
+                backgroundColor="var(--border-glow-bg)"
+                borderRadius={20}
+                glowRadius={36}
+                edgeSensitivity={25}
+                fillOpacity={0.35}
+              >
+                <figure className="flex h-full flex-col p-6">
+                  <div className="flex items-center gap-1 text-amber-400">
+                    {Array.from({ length: 5 }).map((_, s) => (
+                      <Star key={s} className="h-4 w-4 fill-current" />
+                    ))}
                   </div>
-                </figcaption>
-              </figure>
+                  <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">"{quote}"</blockquote>
+                  <figcaption className="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4 dark:border-gray-800">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary-600 to-sky-500 text-xs font-bold text-white">
+                      {name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()}
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 dark:text-gray-50">{name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{role}</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              </BorderGlow>
             </Reveal>
           ))}
         </div>
