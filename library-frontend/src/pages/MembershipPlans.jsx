@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Award, BookMarked, BookOpen, CalendarDays, Check, Crown, RefreshCcw, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Award, BookMarked, BookOpen, CalendarDays, Check, Crown, RefreshCcw, RefreshCw, ShieldCheck, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { getApiErrorMessage, paymentService, subscriptionService, userSubscriptionService } from '../services/api.js'
+import { parsePlanFeatures } from '../utils/planFeatures.js'
 
 export default function MembershipPlans() {
   const navigate = useNavigate()
@@ -174,9 +175,9 @@ export default function MembershipPlans() {
             const isFree = plan.price === 0
             const isPopular = Boolean(plan.featured) && !isCurrentPlan
             const status = plan.status || 'ACTIVE'
-            const customFeatures = typeof plan.features === 'string'
-              ? plan.features.split(/\r?\n/).map((f) => f.trim()).filter(Boolean)
-              : Array.isArray(plan.features) ? plan.features : []
+            const featureList = parsePlanFeatures(plan.features)
+            const visibleFeatures = featureList.slice(0, 4)
+            const hasMoreFeatures = featureList.length > 4
             const hasPolicy = Boolean(plan.priorityReservation) || Boolean(plan.fineExempt)
 
             return (
@@ -219,7 +220,9 @@ export default function MembershipPlans() {
                   {plan.description && <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{plan.description}</p>}
 
                   <p className="mt-4 flex items-baseline gap-1.5">
-                    <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">₹{plan.price}</span>
+                    <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+                      {isFree ? 'Free' : `₹${plan.price}`}
+                    </span>
                     <span className="text-xs font-medium text-gray-400 dark:text-gray-500">/{plan.validityDays} days</span>
                   </p>
 
@@ -246,19 +249,32 @@ export default function MembershipPlans() {
                     </div>
                   </div>
 
-                  {customFeatures.length > 0 && (
-                    <div className="mt-5">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Features</p>
-                      <ul className="mt-2 flex flex-col gap-1.5">
-                        {customFeatures.map((f) => (
-                          <li key={f} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
-                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  <div className="mt-5">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Features</p>
+                    {featureList.length === 0 ? (
+                      <p className="mt-2 text-xs italic text-gray-400 dark:text-gray-500">No additional features</p>
+                    ) : (
+                      <>
+                        <ul className="mt-2 flex flex-col gap-1.5">
+                          {visibleFeatures.map((f) => (
+                            <li key={f} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
+                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                              <span>{f}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {hasMoreFeatures && (
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById(`features-dialog-${plan.id}`)?.showModal()}
+                            className="mt-2 text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
+                          >
+                            View all {featureList.length} features
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
 
                   {hasPolicy && (
                     <div className="mt-5">
@@ -293,6 +309,34 @@ export default function MembershipPlans() {
                       </Button>
                     )}
                   </div>
+
+                  <dialog
+                    id={`features-dialog-${plan.id}`}
+                    onClick={(e) => {
+                      if (e.target === document.getElementById(`features-dialog-${plan.id}`)) document.getElementById(`features-dialog-${plan.id}`)?.close()
+                    }}
+                    className="m-auto w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl backdrop:bg-gray-950/50 dark:border-gray-800 dark:bg-gray-900"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50">{plan.name} — All Features</h3>
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById(`features-dialog-${plan.id}`)?.close()}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                        aria-label="Close"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <ul className="mt-4 flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+                      {featureList.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </dialog>
                 </article>
               </div>
             )

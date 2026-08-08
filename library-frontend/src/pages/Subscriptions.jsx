@@ -8,6 +8,7 @@ import Modal from '../components/Modal.jsx'
 import FormInput from '../components/FormInput.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { getApiErrorMessage, subscriptionService, userSubscriptionService } from '../services/api.js'
+import { parsePlanFeatures } from '../utils/planFeatures.js'
 
 const emptyPlan = {
   name: '', description: '', maxBooks: '', maxLoanDays: '',
@@ -276,9 +277,7 @@ export default function Subscriptions() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visiblePlans.map((plan) => {
             const isPopular = Boolean(plan.featured)
-            const customFeatures = typeof plan.features === 'string'
-              ? plan.features.split(/\r?\n/).map((f) => f.trim()).filter(Boolean)
-              : Array.isArray(plan.features) ? plan.features : []
+            const customFeatures = parsePlanFeatures(plan.features)
             const hasPolicy = Boolean(plan.priorityReservation) || Boolean(plan.fineExempt)
             return (
               <div key={plan.id} className="aura flex w-full max-w-[360px] justify-self-center">

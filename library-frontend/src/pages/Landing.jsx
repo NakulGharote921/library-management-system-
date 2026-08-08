@@ -44,6 +44,7 @@ import MorphSlider from '../components/Reactbites/src/component/Reactbites/Morph
 import BorderGlow from '../components/Reactbites/BorderGlow.jsx'
 import { getApiErrorMessage, bookService, subscriptionService } from '../services/api.js'
 import { preferCover, preloadCovers, DEFAULT_COVER } from '../utils/bookCovers.js'
+import { parsePlanFeatures } from '../utils/planFeatures.js'
 
 const NAV_LINKS = [
   { label: 'Features', to: '/home/features' },
@@ -529,11 +530,7 @@ function HowItWorks() {
 }
 
 function planFeatureItems(plan) {
-  const raw = Array.isArray(plan.features)
-    ? plan.features
-    : typeof plan.features === 'string'
-      ? plan.features.split(/\r?\n/).map((f) => f.trim()).filter(Boolean)
-      : []
+  const raw = parsePlanFeatures(plan.features)
   if (raw.length) return raw.map((text) => ({ text, included: true }))
 
   const items = [
