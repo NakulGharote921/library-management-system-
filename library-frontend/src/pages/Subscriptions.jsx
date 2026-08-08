@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
-import { Award, Check, Edit3, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Award, BookMarked, BookOpen, CalendarDays, Check, Edit3, Plus, RefreshCcw, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import { selectUserRole } from '../store/authSlice.js'
 import Button from '../components/Button.jsx'
 import Modal from '../components/Modal.jsx'
@@ -208,17 +208,10 @@ export default function Subscriptions() {
             const customFeatures = typeof plan.features === 'string'
               ? plan.features.split(/\r?\n/).map((f) => f.trim()).filter(Boolean)
               : Array.isArray(plan.features) ? plan.features : []
-            const rows = customFeatures.length
-              ? customFeatures.map((text) => ({ label: text, value: null, included: true }))
-              : [
-                  { label: 'Max Books', value: plan.maxBooks, included: true },
-                  { label: 'Loan Days', value: plan.maxLoanDays, included: true },
-                  { label: 'Renewals', value: plan.maxRenewals, included: plan.maxRenewals > 0 },
-                  { label: 'Reservations', value: plan.maxReservations ?? 0, included: (plan.maxReservations ?? 0) > 0 },
-                ]
+            const hasPolicy = Boolean(plan.priorityReservation) || Boolean(plan.fineExempt)
             return (
               <div key={plan.id} className="aura flex w-full max-w-[360px] justify-self-center">
-                <article className="flex min-h-[240px] w-full flex-col gap-4 overflow-hidden rounded-2xl border border-gray-100 bg-white px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-gray-800 dark:bg-gray-900">
+                <article className="flex w-full flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-gray-800 dark:bg-gray-900">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2">
                       {isPopular && (
@@ -256,7 +249,7 @@ export default function Subscriptions() {
                     <div className="min-w-0">
                       <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-50">{plan.name}</h3>
                       {plan.description && (
-                        <p className="mt-1 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">{plan.description}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{plan.description}</p>
                       )}
                     </div>
                     <div className="shrink-0 text-right">
@@ -265,19 +258,60 @@ export default function Subscriptions() {
                     </div>
                   </div>
 
-                  <ul className="flex flex-col gap-2">
-                    {rows.map((row) => (
-                      <li
-                        key={row.label}
-                        className={`flex items-center gap-2 text-sm ${row.included ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}
-                      >
-                        <Check className={`h-4 w-4 shrink-0 ${row.included ? 'text-emerald-600' : 'text-gray-300 dark:text-gray-600'}`} />
-                        <span className={row.included ? '' : 'line-through'}>
-                          {row.label}{row.value != null ? `: ${row.value}` : ''}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
+                      <BookOpen className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Books</p>
+                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxBooks} at a time</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
+                      <CalendarDays className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Loan Period</p>
+                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxLoanDays} days</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
+                      <RefreshCcw className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Renewals</p>
+                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxRenewals}</p>
+                    </div>
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
+                      <BookMarked className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Reservations</p>
+                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxReservations ?? 0}</p>
+                    </div>
+                  </div>
+
+                  {customFeatures.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Features</p>
+                      <ul className="mt-2 flex flex-col gap-1.5">
+                        {customFeatures.map((f) => (
+                          <li key={f} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
+                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {hasPolicy && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Policies</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {Boolean(plan.priorityReservation) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                            <ShieldCheck className="h-3.5 w-3.5" /> Priority Reservations
+                          </span>
+                        )}
+                        {Boolean(plan.fineExempt) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                            <ShieldCheck className="h-3.5 w-3.5" /> Fine Exempt
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="mt-auto">
                     {!isAdmin && plan.status === 'ACTIVE' ? (

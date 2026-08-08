@@ -27,6 +27,7 @@ import {
   Newspaper,
   Phone,
   Plus,
+  RefreshCcw,
   RefreshCw,
   Rocket,
   Search,
@@ -540,8 +541,6 @@ function planFeatureItems(plan) {
     { text: `${plan.maxLoanDays}-day loan period`, included: plan.maxLoanDays > 0 },
     { text: `Up to ${plan.maxReservations} reservations`, included: plan.maxReservations > 0 },
     { text: `Up to ${plan.maxRenewals} renewals`, included: plan.maxRenewals > 0 },
-    { text: 'Priority reservations', included: plan.priorityReservation },
-    { text: 'Fines waived', included: plan.fineExempt },
   ]
   return items.filter((item) => item.included)
 }
@@ -550,11 +549,9 @@ function PlanStats({ plan }) {
   const stats = [
     { icon: BookOpen, label: 'Borrow limit', value: `${plan.maxBooks} books` },
     { icon: CalendarDays, label: 'Loan duration', value: `${plan.maxLoanDays} days` },
+    { icon: RefreshCcw, label: 'Renewals', value: `${plan.maxRenewals}` },
     { icon: ClipboardList, label: 'Reservations', value: `${plan.maxReservations}` },
   ]
-  if (plan.fineExempt) {
-    stats.push({ icon: ShieldCheck, label: 'Fine waiver', value: 'Waived' })
-  }
   return (
     <div className="grid grid-cols-2 gap-2.5">
       {stats.map(({ icon: Icon, label, value }) => (
@@ -693,6 +690,23 @@ function Plans() {
                         </li>
                       ))}
                     </ul>
+                    {(Boolean(plan.priorityReservation) || Boolean(plan.fineExempt)) && (
+                      <div className="mt-5">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Policies</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {Boolean(plan.priorityReservation) && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                              <ShieldCheck className="h-3.5 w-3.5" /> Priority Reservations
+                            </span>
+                          )}
+                          {Boolean(plan.fineExempt) && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                              <ShieldCheck className="h-3.5 w-3.5" /> Fine Exempt
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <Link
                       to="/register"
                       className={`mt-7 inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
