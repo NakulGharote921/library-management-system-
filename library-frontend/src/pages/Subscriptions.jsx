@@ -17,17 +17,20 @@ const emptyPlan = {
   displayOrder: 0, status: 'ACTIVE', features: '',
 }
 
-function CheckField({ checked, onChange, label }) {
+function CheckField({ id, checked, onChange, label }) {
   return (
-    <label className="flex cursor-pointer select-none items-center">
+    <div className="mb-4 flex items-center">
       <input
+        id={id}
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border border-gray-300 accent-primary-600 focus:ring-2 focus:ring-primary-300 dark:border-gray-600 dark:bg-gray-800"
+        className="h-4 w-4 rounded border border-slate-400 bg-white text-blue-600 focus:ring-2 focus:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-blue-500 dark:focus:ring-blue-400"
       />
-      <span className="ms-2 text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
-    </label>
+      <label htmlFor={id} className="ms-2 cursor-pointer select-none text-sm font-medium text-slate-700 dark:text-slate-200">
+        {label}
+      </label>
+    </div>
   )
 }
 
@@ -476,10 +479,10 @@ export default function Subscriptions() {
               />
             </label>
           </div>
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 md:col-span-2">
-            <CheckField checked={Boolean(form.priorityReservation)} onChange={(v) => setField('priorityReservation', v)} label="Priority reservations" />
-            <CheckField checked={Boolean(form.fineExempt)} onChange={(v) => setField('fineExempt', v)} label="Fine exempt" />
-            <CheckField checked={Boolean(form.featured)} onChange={(v) => setField('featured', v)} label="Featured (Most Popular)" />
+          <div className="md:col-span-2">
+            <CheckField id="priority-reservation" checked={Boolean(form.priorityReservation)} onChange={(v) => setField('priorityReservation', v)} label="Priority reservations" />
+            <CheckField id="fine-exempt" checked={Boolean(form.fineExempt)} onChange={(v) => setField('fineExempt', v)} label="Fine exempt" />
+            <CheckField id="featured" checked={Boolean(form.featured)} onChange={(v) => setField('featured', v)} label="Featured (Most Popular)" />
           </div>
         </div>
       </Modal>
