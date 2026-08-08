@@ -17,28 +17,17 @@ const emptyPlan = {
   displayOrder: 0, status: 'ACTIVE', features: '',
 }
 
-function Toggle({ checked, onChange, label }) {
+function CheckField({ checked, onChange, label }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className="group flex items-center gap-2.5 text-sm font-medium text-gray-700 transition hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
-    >
-      <span
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ${
-          checked ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-700'
-        }`}
-      >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
-            checked ? 'translate-x-5' : 'translate-x-0.5'
-          }`}
-        />
-      </span>
-      {label}
-    </button>
+    <label className="flex cursor-pointer select-none items-center">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border border-gray-300 accent-primary-600 focus:ring-2 focus:ring-primary-300 dark:border-gray-600 dark:bg-gray-800"
+      />
+      <span className="ms-2 text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
+    </label>
   )
 }
 
@@ -488,9 +477,9 @@ export default function Subscriptions() {
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3 md:col-span-2">
-            <Toggle checked={Boolean(form.priorityReservation)} onChange={(v) => setField('priorityReservation', v)} label="Priority reservations" />
-            <Toggle checked={Boolean(form.fineExempt)} onChange={(v) => setField('fineExempt', v)} label="Fine exempt" />
-            <Toggle checked={Boolean(form.featured)} onChange={(v) => setField('featured', v)} label="Featured (Most Popular)" />
+            <CheckField checked={Boolean(form.priorityReservation)} onChange={(v) => setField('priorityReservation', v)} label="Priority reservations" />
+            <CheckField checked={Boolean(form.fineExempt)} onChange={(v) => setField('fineExempt', v)} label="Fine exempt" />
+            <CheckField checked={Boolean(form.featured)} onChange={(v) => setField('featured', v)} label="Featured (Most Popular)" />
           </div>
         </div>
       </Modal>

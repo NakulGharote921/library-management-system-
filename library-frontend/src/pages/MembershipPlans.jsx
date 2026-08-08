@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Award, BookOpen, Check, Crown, RefreshCw, X } from 'lucide-react'
+import { Award, BookOpen, Check, CircleCheck, Crown, RefreshCw, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
@@ -9,11 +9,9 @@ import { parsePlanFeatures } from '../utils/planFeatures.js'
 
 function PlanCheckItem({ text, included }) {
   return (
-    <li className="flex items-start gap-2">
-      <Check
-        className={`mt-0.5 h-4 w-4 shrink-0 ${included ? 'text-emerald-500' : 'text-gray-300 dark:text-gray-600'}`}
-      />
-      <span className={`${included ? '' : 'opacity-50 line-through text-gray-400 dark:text-gray-500'}`}>{text}</span>
+    <li className={`flex items-center ${included ? '' : 'line-through decoration-gray-400 dark:decoration-gray-500'}`}>
+      <CircleCheck className={`me-1.5 h-5 w-5 shrink-0 ${included ? 'text-primary-600 dark:text-primary-400' : 'text-gray-300 dark:text-gray-600'}`} />
+      <span className={included ? '' : 'text-gray-400 dark:text-gray-500'}>{text}</span>
     </li>
   )
 }
@@ -223,19 +221,18 @@ export default function MembershipPlans() {
                     </span>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between gap-3">
-                    <h2 className="flex items-center text-3xl font-bold text-gray-900 dark:text-gray-50">
-                      {plan.name}
-                      {plan.name === 'Student' && <i className="fi fi-rs-badge ml-2 text-amber-500" aria-hidden="true" />}
-                    </h2>
-                    <p className="text-right text-xl font-bold text-gray-900 dark:text-white">
-                      {isFree ? 'Free' : `₹${plan.price}`}
-                      <span className="block text-[10px] font-medium text-gray-400 dark:text-gray-500">/{plan.validityDays} days</span>
-                    </p>
-                  </div>
-                  {plan.description && <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{plan.description}</p>}
+                  <h5 className="mb-4 text-xl font-medium text-gray-900 dark:text-gray-50">
+                    {plan.name}
+                    {plan.name === 'Student' && <i className="fi fi-rs-badge ml-2 text-amber-500" aria-hidden="true" />}
+                  </h5>
+                  {plan.description && <p className="-mt-3 mb-4 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{plan.description}</p>}
 
-                  <ul className="mt-5 flex flex-col gap-2 text-xs text-gray-600 dark:text-gray-300">
+                  <div className="flex items-baseline text-gray-900 dark:text-white">
+                    <span className="text-5xl font-extrabold tracking-tight">{isFree ? 'Free' : `₹${plan.price}`}</span>
+                    <span className="ms-2 text-sm font-medium text-gray-500 dark:text-gray-400">/{plan.validityDays} days</span>
+                  </div>
+
+                  <ul role="list" className="my-6 space-y-4 text-sm text-gray-600 dark:text-gray-300">
                     <PlanCheckItem text={`${plan.maxBooks} books at a time`} included={plan.maxBooks > 0} />
                     <PlanCheckItem text={`${plan.maxLoanDays}-day loan period`} included={plan.maxLoanDays > 0} />
                     <PlanCheckItem text={`${plan.maxRenewals} renewals`} included={plan.maxRenewals > 0} />
