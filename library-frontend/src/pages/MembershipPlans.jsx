@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Award, BookMarked, BookOpen, CalendarDays, Check, Crown, RefreshCcw, RefreshCw, ShieldCheck, X } from 'lucide-react'
+import { Award, BookOpen, Check, Crown, RefreshCw, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { getApiErrorMessage, paymentService, subscriptionService, userSubscriptionService } from '../services/api.js'
 import { parsePlanFeatures } from '../utils/planFeatures.js'
+
+function PlanCheckItem({ text, included }) {
+  return (
+    <li className="flex items-start gap-2">
+      <Check
+        className={`mt-0.5 h-4 w-4 shrink-0 ${included ? 'text-emerald-500' : 'text-gray-300 dark:text-gray-600'}`}
+      />
+      <span className={`${included ? '' : 'opacity-50 line-through text-gray-400 dark:text-gray-500'}`}>{text}</span>
+    </li>
+  )
+}
 
 export default function MembershipPlans() {
   const navigate = useNavigate()
@@ -178,7 +189,6 @@ export default function MembershipPlans() {
             const featureList = parsePlanFeatures(plan.features)
             const visibleFeatures = featureList.slice(0, 4)
             const hasMoreFeatures = featureList.length > 4
-            const hasPolicy = Boolean(plan.priorityReservation) || Boolean(plan.fineExempt)
 
             return (
               <div key={plan.id} className="relative h-full">
@@ -213,85 +223,41 @@ export default function MembershipPlans() {
                     </span>
                   </div>
 
-                  <h2 className="mt-4 flex items-center text-2xl font-bold text-gray-900 dark:text-gray-50">
-                    {plan.name}
-                    {plan.name === 'Student' && <i className="fi fi-rs-badge ml-2 text-amber-500" aria-hidden="true" />}
-                  </h2>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <h2 className="flex items-center text-3xl font-bold text-gray-900 dark:text-gray-50">
+                      {plan.name}
+                      {plan.name === 'Student' && <i className="fi fi-rs-badge ml-2 text-amber-500" aria-hidden="true" />}
+                    </h2>
+                    <p className="text-right text-xl font-bold text-gray-900 dark:text-white">
+                      {isFree ? 'Free' : `₹${plan.price}`}
+                      <span className="block text-[10px] font-medium text-gray-400 dark:text-gray-500">/{plan.validityDays} days</span>
+                    </p>
+                  </div>
                   {plan.description && <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{plan.description}</p>}
 
-                  <p className="mt-4 flex items-baseline gap-1.5">
-                    <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-                      {isFree ? 'Free' : `₹${plan.price}`}
-                    </span>
-                    <span className="text-xs font-medium text-gray-400 dark:text-gray-500">/{plan.validityDays} days</span>
-                  </p>
+                  <ul className="mt-5 flex flex-col gap-2 text-xs text-gray-600 dark:text-gray-300">
+                    <PlanCheckItem text={`${plan.maxBooks} books at a time`} included={plan.maxBooks > 0} />
+                    <PlanCheckItem text={`${plan.maxLoanDays}-day loan period`} included={plan.maxLoanDays > 0} />
+                    <PlanCheckItem text={`${plan.maxRenewals} renewals`} included={plan.maxRenewals > 0} />
+                    <PlanCheckItem text={`${plan.maxReservations} reservations`} included={plan.maxReservations > 0} />
+                    <PlanCheckItem text="Priority reservations" included={Boolean(plan.priorityReservation)} />
+                    <PlanCheckItem text="Fine exemption" included={Boolean(plan.fineExempt)} />
+                    {visibleFeatures.map((f) => (
+                      <PlanCheckItem key={f} text={f} included />
+                    ))}
+                  </ul>
 
-                  <div className="mt-5 grid grid-cols-2 gap-2.5">
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
-                      <BookOpen className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Books</p>
-                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxBooks} at a time</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
-                      <CalendarDays className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Loan Period</p>
-                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxLoanDays} days</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
-                      <RefreshCcw className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Renewals</p>
-                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxRenewals}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
-                      <BookMarked className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Reservations</p>
-                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxReservations ?? 0}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Features</p>
-                    {featureList.length === 0 ? (
-                      <p className="mt-2 text-xs italic text-gray-400 dark:text-gray-500">No additional features</p>
-                    ) : (
-                      <>
-                        <ul className="mt-2 flex flex-col gap-1.5">
-                          {visibleFeatures.map((f) => (
-                            <li key={f} className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
-                              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                              <span>{f}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        {hasMoreFeatures && (
-                          <button
-                            type="button"
-                            onClick={() => document.getElementById(`features-dialog-${plan.id}`)?.showModal()}
-                            className="mt-2 text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
-                          >
-                            View all {featureList.length} features
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {hasPolicy && (
-                    <div className="mt-5">
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Policies</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {Boolean(plan.priorityReservation) && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
-                            <ShieldCheck className="h-3.5 w-3.5" /> Priority Reservations
-                          </span>
-                        )}
-                        {Boolean(plan.fineExempt) && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
-                            <ShieldCheck className="h-3.5 w-3.5" /> Fine Exempt
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  {featureList.length === 0 && (
+                    <p className="mt-3 text-xs italic text-gray-400 dark:text-gray-500">No additional features</p>
+                  )}
+                  {hasMoreFeatures && (
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById(`features-dialog-${plan.id}`)?.showModal()}
+                      className="mt-2 self-start text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
+                    >
+                      View all {featureList.length} features
+                    </button>
                   )}
 
                   <div className="mt-6 flex flex-1 flex-col justify-end">
