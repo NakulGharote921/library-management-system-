@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
-import { Archive, Award, BookMarked, BookOpen, CalendarDays, Check, Edit3, Plus, RefreshCcw, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
+import { Archive, Award, CircleCheck, Edit3, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { selectUserRole } from '../store/authSlice.js'
 import Button from '../components/Button.jsx'
 import Modal from '../components/Modal.jsx'
@@ -31,6 +31,15 @@ function CheckField({ id, checked, onChange, label }) {
         {label}
       </label>
     </div>
+  )
+}
+
+function PlanCheckItem({ text, included }) {
+  return (
+    <li className={`flex items-center ${included ? '' : 'line-through decoration-gray-400 dark:decoration-gray-500'}`}>
+      <CircleCheck className={`me-1.5 h-5 w-5 shrink-0 ${included ? 'text-primary-600 dark:text-primary-400' : 'text-gray-300 dark:text-gray-600'}`} />
+      <span className={`text-sm ${included ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>{text}</span>
+    </li>
   )
 }
 
@@ -270,7 +279,6 @@ export default function Subscriptions() {
           {visiblePlans.map((plan) => {
             const isPopular = Boolean(plan.featured)
             const customFeatures = parsePlanFeatures(plan.features)
-            const hasPolicy = Boolean(plan.priorityReservation) || Boolean(plan.fineExempt)
             return (
               <div key={plan.id} className="aura flex w-full max-w-[360px] justify-self-center">
                 <article className="flex w-full flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-gray-800 dark:bg-gray-900">
@@ -307,73 +315,29 @@ export default function Subscriptions() {
                     )}
                   </div>
 
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-50">{plan.name}</h3>
-                      {plan.description && (
-                        <p className="mt-1 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{plan.description}</p>
-                      )}
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">₹{plan.price}</p>
-                      <p className="text-sm text-gray-400">/{plan.validityDays} days</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
-                      <BookOpen className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Books</p>
-                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxBooks} at a time</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
-                      <CalendarDays className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Loan Period</p>
-                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxLoanDays} days</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
-                      <RefreshCcw className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Renewals</p>
-                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxRenewals}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60">
-                      <BookMarked className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">Reservations</p>
-                      <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{plan.maxReservations ?? 0}</p>
-                    </div>
-                  </div>
-
-                  {customFeatures.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Features</p>
-                      <ul className="mt-2 flex flex-col gap-1.5">
-                        {customFeatures.map((f) => (
-                          <li key={f} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
-                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                  <h5 className="mb-4 text-xl font-medium text-gray-900 dark:text-gray-50">
+                    {plan.name}
+                  </h5>
+                  {plan.description && (
+                    <p className="-mt-3 mb-4 text-sm leading-relaxed text-gray-500 dark:text-gray-400">{plan.description}</p>
                   )}
 
-                  {hasPolicy && (
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">Policies</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {Boolean(plan.priorityReservation) && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
-                            <ShieldCheck className="h-3.5 w-3.5" /> Priority Reservations
-                          </span>
-                        )}
-                        {Boolean(plan.fineExempt) && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
-                            <ShieldCheck className="h-3.5 w-3.5" /> Fine Exempt
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  <div className="flex items-baseline text-gray-900 dark:text-white">
+                    <span className="text-5xl font-extrabold tracking-tight">₹{plan.price}</span>
+                    <span className="ms-2 text-sm font-medium text-gray-500 dark:text-gray-400">/{plan.validityDays} days</span>
+                  </div>
+
+                  <ul role="list" className="my-6 space-y-4">
+                    <PlanCheckItem text={`${plan.maxBooks} books at a time`} included={plan.maxBooks > 0} />
+                    <PlanCheckItem text={`${plan.maxLoanDays}-day loan period`} included={plan.maxLoanDays > 0} />
+                    <PlanCheckItem text={`${plan.maxRenewals} renewals`} included={plan.maxRenewals > 0} />
+                    <PlanCheckItem text={`${plan.maxReservations} reservations`} included={plan.maxReservations > 0} />
+                    <PlanCheckItem text="Priority reservations" included={Boolean(plan.priorityReservation)} />
+                    <PlanCheckItem text="Fine exemption" included={Boolean(plan.fineExempt)} />
+                    {customFeatures.map((f) => (
+                      <PlanCheckItem key={f} text={f} included />
+                    ))}
+                  </ul>
 
                   <div className="mt-auto">
                     {!isAdmin && plan.status === 'ACTIVE' ? (
