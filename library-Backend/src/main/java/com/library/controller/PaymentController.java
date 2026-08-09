@@ -63,7 +63,9 @@ public class PaymentController {
         String paymentId = body.get("razorpay_payment_id");
         String signature = body.get("razorpay_signature");
         if (orderId == null || paymentId == null || signature == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            log.warn("Payment verify request missing fields: orderId={}, paymentId={}, signature={}",
+                    orderId != null, paymentId != null, signature != null);
+            throw new BusinessException("Missing required payment verification fields");
         }
         PaymentTransaction transaction = paymentService.verifyPayment(orderId, paymentId, signature);
         return ResponseEntity.ok(transaction);

@@ -219,7 +219,13 @@ public class PaymentService {
         PaymentTransaction transaction = paymentTransactionRepository.findByRazorpayOrderId(razorpayOrderId)
                 .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", razorpayOrderId));
 
-        if (!PaymentTransaction.STATUS_PENDING.equals(transaction.getStatus())) {
+        if (PaymentTransaction.STATUS_SUCCESS.equals(transaction.getStatus())) {
+            log.info("Payment already completed for order: {} - returning existing transaction", razorpayOrderId);
+            return transaction;
+        }
+
+        if (!PaymentTransaction.STATUS_PENDING.equals(transaction.getStatus())
+                && !PaymentTransaction.STATUS_FAILED.equals(transaction.getStatus())) {
             throw new BusinessException("Payment already " + transaction.getStatus());
         }
 
