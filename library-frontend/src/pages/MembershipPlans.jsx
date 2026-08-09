@@ -93,11 +93,12 @@ export default function MembershipPlans() {
         return
       }
 
-      const priceInRupees = Number(sub.plan?.price ?? order.amount / 100)
       const amountInPaise = Number(order.amount)
-      if (priceInRupees > 0 && amountInPaise !== Math.round(priceInRupees * 100)) {
+      const priceInRupees = amountInPaise > 0 ? amountInPaise / 100 : Number(sub.plan?.price || 0)
+      const planPriceInRupees = Number(sub.plan?.price)
+      if (planPriceInRupees > 0 && amountInPaise !== Math.round(planPriceInRupees * 100)) {
         console.warn(
-          `PRICE MISMATCH: plan=${priceInRupees} rupees, expected order=${Math.round(priceInRupees * 100)} paise, got order=${amountInPaise} paise — stale backend order conversion detected`
+          `PRICE MISMATCH: plan=${planPriceInRupees} rupees, expected order=${Math.round(planPriceInRupees * 100)} paise, got order=${amountInPaise} paise — stale backend order conversion detected`
         )
       }
       const options = {
