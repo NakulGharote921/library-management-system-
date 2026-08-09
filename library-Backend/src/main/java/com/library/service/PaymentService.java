@@ -231,9 +231,10 @@ public class PaymentService {
             }
             return active;
         } catch (Exception e) {
-            log.warn("Could not fetch razorpay order {} - reusing pending transaction: {}",
+            log.warn("Could not verify razorpay order {} - marking FAILED, creating fresh order: {}",
                     existing.getRazorpayOrderId(), e.getMessage());
-            return active;
+            failTransaction(existing);
+            return Optional.empty();
         }
     }
 

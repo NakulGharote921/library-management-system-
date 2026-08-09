@@ -96,10 +96,14 @@ export default function MembershipPlans() {
       const amountInPaise = Number(order.amount)
       const priceInRupees = amountInPaise > 0 ? amountInPaise / 100 : Number(sub.plan?.price || 0)
       const planPriceInRupees = Number(sub.plan?.price)
-      if (planPriceInRupees > 0 && amountInPaise !== Math.round(planPriceInRupees)) {
-        console.warn(
-          `PRICE MISMATCH: plan=${planPriceInRupees} rupees, expected order=${Math.round(planPriceInRupees)} paise, got order=${amountInPaise} paise — stale backend order conversion detected`
+      if (planPriceInRupees > 0 && priceInRupees !== planPriceInRupees) {
+        console.error(
+          `PRICE MISMATCH: plan=${planPriceInRupees} rupees, got order=${priceInRupees} rupees — aborting checkout to avoid wrong charge`
         )
+        showErrorOnce('Price mismatch detected. Payment order cancelled — please retry.')
+        finish()
+        load()
+        return
       }
       const options = {
         key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNLiCQpt3YZGUr',
