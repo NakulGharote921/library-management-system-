@@ -59,16 +59,24 @@ public class PaymentController {
 
     @PostMapping("/verify")
     public ResponseEntity<PaymentTransaction> verifyPayment(@RequestBody Map<String, String> body) {
-        String orderId = body.get("razorpay_order_id");
-        String paymentId = body.get("razorpay_payment_id");
-        String signature = body.get("razorpay_signature");
+        String orderId = extractField(body, "razorpay_order_id", "razorpayOrderId");
+        String paymentId = extractField(body, "razorpay_payment_id", "razorpayPaymentId");
+        String signature = extractField(body, "razorpay_signature", "razorpaySignature");
         if (orderId == null || paymentId == null || signature == null) {
             log.warn("Payment verify request missing fields: orderId={}, paymentId={}, signature={}",
                     orderId != null, paymentId != null, signature != null);
-            throw new BusinessException("Missing required payment verification fields");
+            throw new BusinessException("Missing required payment verification fields (razorpay_order_id, razorpay_payment_id, razorpay_signature)");
         }
         PaymentTransaction transaction = paymentService.verifyPayment(orderId, paymentId, signature);
         return ResponseEntity.ok(transaction);
+    }
+
+    private String extractField(Map<String, String> body, String snakeKey, String camelKey) {
+        String value = body.get(snakeKey);
+        if (value == null || value.isBlank()) {
+            value = body.get(camelKey);
+        }
+        return (value == null || value.isBlank()) ? null : value.trim();
     }
 
     @GetMapping("/my")
