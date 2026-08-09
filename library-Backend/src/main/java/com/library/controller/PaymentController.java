@@ -1,6 +1,7 @@
 package com.library.controller;
 
 import com.library.dto.OrderResponseDto;
+import com.library.dto.PaymentVerifyResponse;
 import com.library.entity.PaymentTransaction;
 import com.library.entity.User;
 import com.library.exception.BusinessException;
@@ -58,15 +59,18 @@ public class PaymentController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<PaymentTransaction> verifyPayment(@RequestBody Map<String, String> body) {
+    public ResponseEntity<PaymentVerifyResponse> verifyPayment(Authentication auth,
+                                                                @RequestBody Map<String, String> body) {
+        User user = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User", auth.getName()));
         String orderId = extractField(body, "orderId", "order_id");
         String paymentId = extractField(body, "paymentId", "cfPaymentId", "payment_id");
         if (orderId == null) {
             log.warn("Payment verify request missing orderId");
             throw new BusinessException("Missing required payment verification fields (orderId)");
         }
-        PaymentTransaction transaction = paymentService.verifyPayment(orderId, paymentId);
-        return ResponseEntity.ok(transaction);
+        PaymentVerifyResponse response = paymentService.verifyPayment(user, orderId, paymentId);
+        return ResponseEntity.ok(response);
     }
 
     private String extractField(Map<String, String> body, String... keys) {

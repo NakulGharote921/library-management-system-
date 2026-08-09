@@ -22,9 +22,12 @@ export default function MembershipPlans() {
   const [activeSub, setActiveSub] = useState(null)
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState(null)
+  const [paymentResult, setPaymentResult] = useState(null)
   const payingRef = useRef(false)
   const settledRef = useRef(false)
   const lastErrorToastRef = useRef({ msg: '', at: 0 })
+  const lastVerifyRef = useRef(null)
+  const redirectTimerRef = useRef(null)
 
   const showErrorOnce = useCallback((msg) => {
     const now = Date.now()
@@ -51,18 +54,15 @@ export default function MembershipPlans() {
 
   useEffect(() => { load() }, [load])
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('payment') === 'success') {
-      toast.success('Payment successful! Your membership is now active.')
-      window.history.replaceState({}, '', window.location.pathname)
-    }
+  useEffect(() => () => {
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
   }, [])
 
   const handlePurchase = async (planId) => {
     if (payingRef.current) return
     payingRef.current = true
     settledRef.current = false
+    lastVerifyRef.current = null
     setPurchasing(planId)
     const finish = () => {
       payingRef.current = false
@@ -120,15 +120,15 @@ export default function MembershipPlans() {
       const onSuccess = async (data) => {
         if (settledRef.current) return
         settledRef.current = true
+        const cfOrderId = data?.order?.orderId || data?.order?.order_id || order.orderId
+        const cfPaymentId = data?.payment?.cfPaymentId || data?.payment?.cf_payment_id
+        lastVerifyRef.current = { orderId: cfOrderId, paymentId: cfPaymentId, planName: sub.plan?.name }
         try {
-          const cfOrderId = data?.order?.orderId || order.orderId
-          const cfPaymentId = data?.payment?.cfPaymentId
-          await paymentService.verify(cfOrderId, cfPaymentId)
-          toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
-          setTimeout(() => window.location.replace('/membership?payment=success'), 900)
+          const res = await paymentService.verify(cfOrderId, cfPaymentId)
+          handleVerifyResult(res, sub.plan?.name)
         } catch (err) {
           console.debug('Payment verification failed for subscription', sub.id, err)
-          showErrorOnce('Payment verification failed. Please contact support.')
+          setPaymentResult({ state: 'failed' })
         } finally {
           finish()
           load()
@@ -159,6 +159,40 @@ export default function MembershipPlans() {
       load()
     }
   }
+
+  const handleVerifyResult = useCallback((res, planName) => {
+    if (res?.success && res?.paymentStatus === 'SUCCESS') {
+      toast.success(`${planName || 'Plan'} activated! You can now borrow books.`)
+      setPaymentResult({ state: 'success', planName: planName || 'Plan' })
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
+      redirectTimerRef.current = setTimeout(() => navigate('/member/dashboard', { replace: true }), 1000)
+    } else if (res?.paymentStatus === 'PENDING') {
+      setPaymentResult({ state: 'pending' })
+    } else {
+      setPaymentResult({ state: 'failed' })
+    }
+  }, [navigate])
+
+  const retryVerification = useCallback(async () => {
+    const ref = lastVerifyRef.current
+    if (!ref) {
+      setPaymentResult(null)
+      return
+    }
+    setPaymentResult({ state: 'verifying' })
+    try {
+      const res = await paymentService.verify(ref.orderId, ref.paymentId)
+      handleVerifyResult(res, ref.planName)
+    } catch (err) {
+      console.debug('Payment verification retry failed', err)
+      setPaymentResult({ state: 'failed' })
+    }
+  }, [handleVerifyResult])
+
+  const closePaymentResult = useCallback(() => {
+    setPaymentResult(null)
+    load()
+  }, [load])
 
   const daysLeft = activeSub
     ? Math.max(0, Math.ceil((new Date(activeSub.endDate) - new Date()) / (1000 * 60 * 60 * 24)))
@@ -350,6 +384,66 @@ export default function MembershipPlans() {
               </div>
             )
           })}
+        </div>
+      )}
+      {paymentResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-2xl dark:border-gray-800 dark:bg-gray-900">
+            {paymentResult.state === 'success' && (
+              <>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                  <Check className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Payment Successful</h2>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  {paymentResult.planName} membership activated successfully.
+                </p>
+                <p className="mt-4 text-sm font-medium text-primary-600 dark:text-primary-400">
+                  Redirecting to your dashboard...
+                </p>
+              </>
+            )}
+            {paymentResult.state === 'verifying' && (
+              <>
+                <RefreshCw className="mx-auto h-10 w-10 animate-spin text-primary-600 dark:text-primary-400" />
+                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Verifying your payment</h2>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Please wait while we confirm your payment with Cashfree.
+                </p>
+              </>
+            )}
+            {paymentResult.state === 'pending' && (
+              <>
+                <RefreshCw className="mx-auto h-10 w-10 animate-spin text-primary-600 dark:text-primary-400" />
+                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Payment is being processed</h2>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Your membership will be activated once the payment is confirmed by the bank.
+                </p>
+                <Button className="mt-6 w-full" variant="secondary" onClick={closePaymentResult}>
+                  Back to Membership Plans
+                </Button>
+              </>
+            )}
+            {paymentResult.state === 'failed' && (
+              <>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
+                  <X className="h-8 w-8 text-red-600 dark:text-red-400" />
+                </div>
+                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Payment verification failed</h2>
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Your membership has not been activated. No amount will be charged unless the payment is confirmed.
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <Button className="flex-1" variant="primary" onClick={retryVerification}>
+                    Try Again
+                  </Button>
+                  <Button className="flex-1" variant="secondary" onClick={closePaymentResult}>
+                    Back to Membership Plans
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

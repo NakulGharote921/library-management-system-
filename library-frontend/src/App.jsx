@@ -73,7 +73,6 @@ export default function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/oauth/callback" element={<OAuthCallback />} />
           <Route path="/admin/dashboard" element={<Navigate to="/" replace />} />
-          <Route path="/member/dashboard" element={<Navigate to="/" replace />} />
           <Route path="/home" element={<Landing />} />
           <Route path="/home/features" element={<SectionPage><FeaturesSection /></SectionPage>} />
           <Route path="/home/membership" element={<SectionPage><MembershipSection /></SectionPage>} />
@@ -87,6 +86,7 @@ export default function App() {
             <Route path="about" element={<About />} />
 
             <Route element={<ProtectedRoute />}>
+              <Route path="member/dashboard" element={<RoleGuard roles={['MEMBER']}><Dashboard /></RoleGuard>} />
               <Route path="reading-history" element={<RoleGuard roles={['MEMBER']}><ReadingHistory /></RoleGuard>} />
               <Route path="wishlist" element={<RoleGuard roles={['MEMBER']}><Wishlist /></RoleGuard>} />
               <Route path="wishlist/*" element={<Navigate to="/wishlist" replace />} />

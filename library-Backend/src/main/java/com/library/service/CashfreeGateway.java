@@ -35,7 +35,8 @@ public class CashfreeGateway {
                               String paymentSessionId, String orderStatus) {
     }
 
-    public record PaymentResult(String cfPaymentId, String orderId, String paymentStatus, BigDecimal paymentAmount) {
+    public record PaymentResult(String cfPaymentId, String orderId, String paymentStatus, BigDecimal paymentAmount,
+                                String paymentCurrency) {
     }
 
     private final String appId;
@@ -116,7 +117,7 @@ public class CashfreeGateway {
         if (response != null && response.isArray()) {
             for (JsonNode node : response) {
                 result.add(new PaymentResult(text(node, "cf_payment_id"), text(node, "order_id"),
-                        text(node, "payment_status"), decimal(node, "payment_amount")));
+                        text(node, "payment_status"), decimal(node, "payment_amount"), text(node, "payment_currency")));
             }
         }
         return result;

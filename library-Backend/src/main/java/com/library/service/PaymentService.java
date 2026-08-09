@@ -3,6 +3,7 @@ package com.library.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.library.dto.OrderResponseDto;
+import com.library.dto.PaymentVerifyResponse;
 import com.library.entity.Fine;
 import com.library.entity.PaymentTransaction;
 import com.library.entity.SubscriptionPlan;
@@ -218,13 +219,18 @@ public class PaymentService {
     }
 
     @Transactional
-    public PaymentTransaction verifyPayment(String orderId, String paymentId) {
+    public PaymentVerifyResponse verifyPayment(User user, String orderId, String paymentId) {
         PaymentTransaction transaction = paymentTransactionRepository.findByCashfreeOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", orderId));
 
+        boolean isAdmin = user.getRole() == User.Role.ADMIN;
+        if (!isAdmin && (transaction.getUser() == null || !transaction.getUser().getId().equals(user.getId()))) {
+            throw new BusinessException("Payment does not belong to this user");
+        }
+
         if (PaymentTransaction.STATUS_SUCCESS.equals(transaction.getStatus())) {
             log.info("Payment already completed for order: {} - returning existing transaction", orderId);
-            return transaction;
+            return toVerifyResponse(transaction, true, PaymentTransaction.STATUS_SUCCESS);
         }
 
         if (!PaymentTransaction.STATUS_PENDING.equals(transaction.getStatus())
@@ -234,31 +240,54 @@ public class PaymentService {
 
         try {
             List<CashfreeGateway.PaymentResult> payments = cashfreeGateway.getPayments(orderId);
-            CashfreeGateway.PaymentResult success = payments.stream()
-                    .filter(p -> "SUCCESS".equals(p.paymentStatus()))
-                    .findFirst()
-                    .orElse(null);
+            CashfreeGateway.PaymentResult matched = null;
             if (paymentId != null && !paymentId.isBlank()) {
-                success = payments.stream()
-                        .filter(p -> paymentId.equals(p.cfPaymentId()) && "SUCCESS".equals(p.paymentStatus()))
+                matched = payments.stream()
+                        .filter(p -> paymentId.equals(p.cfPaymentId()))
                         .findFirst()
                         .orElse(null);
-                if (success == null) {
-                    throw new BusinessException("Payment not verified with Cashfree");
-                }
-            }
-            if (success == null) {
-                throw new BusinessException("Payment is not successful yet");
-            }
-            if (success.paymentAmount() != null && transaction.getAmount() != null
-                    && success.paymentAmount().compareTo(transaction.getAmount()) != 0) {
-                log.warn("Payment amount mismatch for order {}: Cashfree={} rupees, expected={} rupees",
-                        orderId, success.paymentAmount(), transaction.getAmount());
-                throw new BusinessException("Payment amount mismatch");
+            } else {
+                matched = payments.stream()
+                        .filter(p -> "SUCCESS".equals(p.paymentStatus()))
+                        .findFirst()
+                        .orElse(null);
             }
 
-            completePayment(transaction, success.cfPaymentId());
-            return transaction;
+            if (matched == null) {
+                if (paymentId != null && !paymentId.isBlank()) {
+                    throw new BusinessException("Payment not verified with Cashfree");
+                }
+                log.info("Payment has no successful transaction yet for order: {}", orderId);
+                return toVerifyResponse(transaction, false, PaymentTransaction.STATUS_PENDING);
+            }
+
+            String cfStatus = matched.paymentStatus();
+            if ("SUCCESS".equals(cfStatus)) {
+                if (matched.paymentAmount() != null && transaction.getAmount() != null
+                        && matched.paymentAmount().compareTo(transaction.getAmount()) != 0) {
+                    log.warn("Payment amount mismatch for order {}: Cashfree={} rupees, expected={} rupees",
+                            orderId, matched.paymentAmount(), transaction.getAmount());
+                    throw new BusinessException("Payment amount mismatch");
+                }
+                if (matched.paymentCurrency() != null && !"INR".equals(matched.paymentCurrency())) {
+                    log.warn("Payment currency mismatch for order {}: Cashfree={}", orderId, matched.paymentCurrency());
+                    throw new BusinessException("Payment currency mismatch");
+                }
+                completePayment(transaction, matched.cfPaymentId());
+                return toVerifyResponse(transaction, true, PaymentTransaction.STATUS_SUCCESS);
+            }
+
+            if ("PENDING".equals(cfStatus) || "NOT_ATTEMPTED".equals(cfStatus)
+                    || "AUTHORIZED".equals(cfStatus) || "PENDING_VBV".equals(cfStatus)) {
+                log.info("Payment still processing for order: {}, status={}", orderId, cfStatus);
+                return toVerifyResponse(transaction, false, PaymentTransaction.STATUS_PENDING);
+            }
+
+            log.info("Payment failed with Cashfree for order: {}, status={}", orderId, cfStatus);
+            transaction.setStatus(PaymentTransaction.STATUS_FAILED);
+            transaction.setCompletedAt(LocalDateTime.now());
+            paymentTransactionRepository.save(transaction);
+            return toVerifyResponse(transaction, false, PaymentTransaction.STATUS_FAILED);
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
@@ -268,6 +297,18 @@ public class PaymentService {
             log.error("Payment verification failed for order {}: {}", orderId, e.getMessage());
             throw new BusinessException("Payment verification failed: " + e.getMessage());
         }
+    }
+
+    private PaymentVerifyResponse toVerifyResponse(PaymentTransaction transaction, boolean success, String status) {
+        boolean membershipActivated = false;
+        if (transaction.getSubscription() != null && transaction.getSubscription().getStatus() != null) {
+            membershipActivated = UserSubscription.STATUS_ACTIVE.equals(transaction.getSubscription().getStatus());
+        }
+        return PaymentVerifyResponse.builder()
+                .success(success)
+                .paymentStatus(status)
+                .membershipActivated(membershipActivated)
+                .build();
     }
 
     @Transactional
