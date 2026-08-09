@@ -40,8 +40,8 @@ public class SubscriptionController {
     public ResponseEntity<UserSubscription> activate(
             @PathVariable Long subscriptionId,
             @RequestBody Map<String, String> body) {
-        String orderId = body.get("razorpayOrderId");
-        String paymentId = body.get("razorpayPaymentId");
+        String orderId = body.get("orderId");
+        String paymentId = body.get("paymentId");
         UserSubscription sub = subscriptionService.activateSubscription(subscriptionId, orderId, paymentId);
         log.info("Subscription id={} activated for user id={}", subscriptionId, sub.getUser().getId());
         return ResponseEntity.ok(sub);

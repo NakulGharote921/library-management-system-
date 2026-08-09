@@ -59,24 +59,24 @@ public class PaymentController {
 
     @PostMapping("/verify")
     public ResponseEntity<PaymentTransaction> verifyPayment(@RequestBody Map<String, String> body) {
-        String orderId = extractField(body, "razorpay_order_id", "razorpayOrderId");
-        String paymentId = extractField(body, "razorpay_payment_id", "razorpayPaymentId");
-        String signature = extractField(body, "razorpay_signature", "razorpaySignature");
-        if (orderId == null || paymentId == null || signature == null) {
-            log.warn("Payment verify request missing fields: orderId={}, paymentId={}, signature={}",
-                    orderId != null, paymentId != null, signature != null);
-            throw new BusinessException("Missing required payment verification fields (razorpay_order_id, razorpay_payment_id, razorpay_signature)");
+        String orderId = extractField(body, "orderId", "order_id");
+        String paymentId = extractField(body, "paymentId", "cfPaymentId", "payment_id");
+        if (orderId == null) {
+            log.warn("Payment verify request missing orderId");
+            throw new BusinessException("Missing required payment verification fields (orderId)");
         }
-        PaymentTransaction transaction = paymentService.verifyPayment(orderId, paymentId, signature);
+        PaymentTransaction transaction = paymentService.verifyPayment(orderId, paymentId);
         return ResponseEntity.ok(transaction);
     }
 
-    private String extractField(Map<String, String> body, String snakeKey, String camelKey) {
-        String value = body.get(snakeKey);
-        if (value == null || value.isBlank()) {
-            value = body.get(camelKey);
+    private String extractField(Map<String, String> body, String... keys) {
+        for (String key : keys) {
+            String value = body.get(key);
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
         }
-        return (value == null || value.isBlank()) ? null : value.trim();
+        return null;
     }
 
     @GetMapping("/my")
@@ -137,20 +137,21 @@ public class PaymentController {
                 sb.append(line);
             }
             String rawBody = sb.toString();
-            String signature = request.getHeader("X-Razorpay-Signature");
+            String signature = request.getHeader("X-Webhook-Signature");
+            String timestamp = request.getHeader("X-Webhook-Timestamp");
 
-            log.info("Webhook received, signature present: {}", signature != null);
+            log.info("Cashfree webhook received, signature present: {}", signature != null);
 
-            if (signature == null || signature.isEmpty()) {
-                log.warn("Webhook missing X-Razorpay-Signature header");
+            if (signature == null || signature.isEmpty() || timestamp == null || timestamp.isEmpty()) {
+                log.warn("Cashfree webhook missing X-Webhook-Signature/X-Webhook-Timestamp header");
                 return ResponseEntity.badRequest().body("Missing signature");
             }
             if (rawBody.isBlank()) {
-                log.warn("Webhook received empty body");
+                log.warn("Cashfree webhook received empty body");
                 return ResponseEntity.badRequest().body("Empty body");
             }
 
-            paymentService.handleWebhook(rawBody, signature);
+            paymentService.handleWebhook(rawBody, timestamp, signature);
             return ResponseEntity.ok("received");
         } catch (Exception e) {
             log.error("Webhook processing failed: {}", e.getMessage());

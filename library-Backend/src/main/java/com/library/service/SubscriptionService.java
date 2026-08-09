@@ -112,12 +112,12 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public UserSubscription activateSubscription(Long subscriptionId, String razorpayOrderId, String razorpayPaymentId) {
+    public UserSubscription activateSubscription(Long subscriptionId, String orderId, String paymentId) {
         UserSubscription sub = userSubscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new ResourceNotFoundException("UserSubscription", subscriptionId));
         sub.setStatus(UserSubscription.STATUS_ACTIVE);
-        sub.setRazorpayOrderId(razorpayOrderId);
-        sub.setRazorpayPaymentId(razorpayPaymentId);
+        sub.setOrderId(orderId);
+        sub.setPaymentId(paymentId);
         sub.setActivatedAt(java.time.LocalDateTime.now());
         return userSubscriptionRepository.save(sub);
     }

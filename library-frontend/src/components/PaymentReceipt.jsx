@@ -51,15 +51,15 @@ export default function PaymentReceipt({ txn, memberName, memberEmail }) {
   const description = safe(txn.label) || safe(txn.description) || planName
   const detail = safe(txn.detail)
   const txDate = txn.date || txn.createdAt || txn.completedAt
-  const orderId = safe(sub?.razorpayOrderId) || safe(txn.razorpayOrderId) || safe(txn.orderId)
-  const paymentId = safe(sub?.razorpayPaymentId) || safe(txn.razorpayPaymentId) || safe(txn.paymentId)
+  const orderId = safe(sub?.orderId) || safe(txn.orderId) || safe(txn.orderId)
+  const paymentId = safe(sub?.paymentId) || safe(txn.paymentId) || safe(txn.paymentId)
   const validityDays = safe(plan?.validityDays)
   const maxBooks = safe(plan?.maxBooks)
   const maxLoanDays = safe(plan?.maxLoanDays)
   const purchasedOn = sub?.startDate || txDate
   const expiresOn = sub?.endDate
   const money = fmtMoney(txn.amount)
-  const method = safe(txn.paymentMethod) || 'Razorpay'
+  const method = safe(txn.paymentMethod) || 'Cashfree'
 
   return (
     <div className="receipt w-full bg-white text-slate-900">

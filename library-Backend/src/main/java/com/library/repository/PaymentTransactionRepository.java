@@ -14,9 +14,9 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     List<PaymentTransaction> findByUserAndStatusInOrderByCreatedAtDesc(User user, Collection<String> statuses);
 
-    Optional<PaymentTransaction> findByRazorpayOrderId(String razorpayOrderId);
+    Optional<PaymentTransaction> findByOrderId(String orderId);
 
-    Optional<PaymentTransaction> findByRazorpayPaymentId(String razorpayPaymentId);
+    Optional<PaymentTransaction> findByPaymentId(String paymentId);
 
     Optional<PaymentTransaction> findFirstByFineIdAndStatusInOrderByCreatedAtDesc(Long fineId, Collection<String> statuses);
 

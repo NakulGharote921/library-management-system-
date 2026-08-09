@@ -51,9 +51,9 @@ public class UserSubscription {
     @Builder.Default
     private String status = STATUS_PENDING;
 
-    private String razorpayOrderId;
+    private String orderId;
 
-    private String razorpayPaymentId;
+    private String paymentId;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
