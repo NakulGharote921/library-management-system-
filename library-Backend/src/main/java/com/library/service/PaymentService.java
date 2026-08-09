@@ -10,7 +10,6 @@ import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
 import com.library.repository.PaymentTransactionRepository;
 import com.razorpay.Order;
-import com.razorpay.RazorpayClient;
 import com.razorpay.Utils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,12 +44,7 @@ public class PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final FineService fineService;
     private final SubscriptionService subscriptionService;
-
-    @Value("${razorpay.key-id}")
-    private String razorpayKeyId;
-
-    @Value("${razorpay.key-secret}")
-    private String razorpayKeySecret;
+    private final RazorpayGateway razorpayGateway;
 
     @Value("${razorpay.webhook-secret:}")
     private String razorpayWebhookSecret;
@@ -68,7 +62,7 @@ public class PaymentService {
         if (fine.getAmount() == null || fine.getAmount().signum() <= 0) {
             throw new BusinessException("Invalid fine amount: cannot create payment order");
         }
-        int amountPaise = fine.getAmount().multiply(BigDecimal.valueOf(100)).intValue();
+        int amountPaise = razorpayGateway.toPaise(fine.getAmount());
         log.info("Fine payment order started: fineId={}, amountPaise={}, currency=INR", fineId, amountPaise);
 
         Optional<PaymentTransaction> active = reusablePending(
@@ -84,12 +78,8 @@ public class PaymentService {
         }
 
         try {
-            RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
-            JSONObject orderRequest = new JSONObject();
-            orderRequest.put("amount", amountPaise);
-            orderRequest.put("currency", "INR");
-            orderRequest.put("receipt", paymentType.toLowerCase() + "_" + fineId);
-            Order razorpayOrder = client.orders.create(orderRequest);
+            Order razorpayOrder = razorpayGateway.createOrder(fine.getAmount(), "INR",
+                    paymentType.toLowerCase() + "_" + fineId);
             log.info("Razorpay fine order created: orderId={}, amountPaise={}, currency=INR", razorpayOrder.get("id"), amountPaise);
 
             PaymentTransaction transaction = PaymentTransaction.builder()
@@ -109,6 +99,8 @@ public class PaymentService {
                 log.info("Concurrent order creation detected, reusing existing payment for fine id={}", fineId);
                 return toOrderDto(concurrent.get(), amountPaise);
             }
+            throw e;
+        } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
             log.error("Razorpay fine order creation failed: fineId={}, error={}", fineId, e.getMessage());
@@ -133,7 +125,7 @@ public class PaymentService {
         if (plan.getPrice() == null || plan.getValidityDays() <= 0 || plan.getName() == null || plan.getName().isBlank()) {
             throw new BusinessException("Subscription plan is incomplete: price, validity and name are required");
         }
-        int amountPaise = plan.getPrice().multiply(BigDecimal.valueOf(100)).intValue();
+        int amountPaise = razorpayGateway.toPaise(plan.getPrice());
         log.info("Subscription order started: planId={}, planName={}, price={}, amountPaise={}, currency=INR",
                 plan.getId(), plan.getName(), plan.getPrice(), amountPaise);
 
@@ -173,12 +165,7 @@ public class PaymentService {
         }
 
         try {
-            RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
-            JSONObject orderRequest = new JSONObject();
-            orderRequest.put("amount", amountPaise);
-            orderRequest.put("currency", "INR");
-            orderRequest.put("receipt", "sub_" + subscriptionId);
-            Order razorpayOrder = client.orders.create(orderRequest);
+            Order razorpayOrder = razorpayGateway.createOrder(plan.getPrice(), "INR", "sub_" + subscriptionId);
             log.info("Razorpay subscription order created: orderId={}, amountPaise={}, currency=INR",
                     razorpayOrder.get("id"), amountPaise);
 
@@ -200,6 +187,8 @@ public class PaymentService {
                 return toOrderDto(concurrent.get(), amountPaise);
             }
             throw e;
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Razorpay subscription order creation failed: subscriptionId={}, error={}", subscriptionId, e.getMessage());
             throw new BusinessException("Failed to create Razorpay order: " + e.getMessage());
@@ -211,7 +200,7 @@ public class PaymentService {
                 .orderId(transaction.getRazorpayOrderId())
                 .amount(amountPaise)
                 .currency(transaction.getCurrency() == null ? "INR" : transaction.getCurrency())
-                .keyId(razorpayKeyId)
+                .keyId(razorpayGateway.getKeyId())
                 .build();
     }
 
@@ -234,8 +223,7 @@ public class PaymentService {
             return Optional.empty();
         }
         try {
-            RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
-            Order razorpayOrder = client.orders.fetch(existing.getRazorpayOrderId());
+            Order razorpayOrder = razorpayGateway.fetchOrder(existing.getRazorpayOrderId());
             int orderPaise = ((Number) razorpayOrder.get("amount")).intValue();
             if (orderPaise != expectedPaise) {
                 log.warn("Pending order {} has amount {} paise, expected {} paise - marking FAILED, creating fresh order",
@@ -275,7 +263,7 @@ public class PaymentService {
             options.put("razorpay_payment_id", razorpayPaymentId);
             options.put("razorpay_signature", razorpaySignature);
 
-            boolean isValid = Utils.verifyPaymentSignature(options, razorpayKeySecret);
+            boolean isValid = Utils.verifyPaymentSignature(options, razorpayGateway.getKeySecret());
             if (!isValid) {
                 transaction.setStatus(PaymentTransaction.STATUS_FAILED);
                 transaction.setCompletedAt(LocalDateTime.now());
@@ -318,7 +306,7 @@ public class PaymentService {
 
     @Transactional
     public void handleWebhook(String rawBody, String signature) {
-        String webhookSecret = razorpayWebhookSecret.isEmpty() ? razorpayKeySecret : razorpayWebhookSecret;
+        String webhookSecret = razorpayWebhookSecret.isEmpty() ? razorpayGateway.getKeySecret() : razorpayWebhookSecret;
 
         try {
             if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
