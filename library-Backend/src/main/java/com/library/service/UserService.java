@@ -61,6 +61,7 @@ public class UserService {
     public List<User> getAllUsers() {
         return userRepository.findAll().stream()
                 .filter(u -> u.getRole() != User.Role.ADMIN)
+                .filter(u -> !User.STATUS_DELETED.equals(u.getStatus()))
                 .toList();
     }
 
@@ -71,6 +72,7 @@ public class UserService {
             List<Predicate> predicates = new ArrayList<>();
 
             predicates.add(cb.notEqual(root.get("role"), User.Role.ADMIN));
+            predicates.add(cb.notEqual(root.get("status"), User.STATUS_DELETED));
 
             if (StringUtils.hasText(role)) {
                 predicates.add(cb.equal(root.get("role"), User.Role.valueOf(role.toUpperCase())));
@@ -286,7 +288,9 @@ public class UserService {
         if (hasActive) {
             throw new BusinessException("Cannot delete user with active book issues");
         }
-        userRepository.delete(user);
+        user.setStatus(User.STATUS_DELETED);
+        user.setActive(false);
+        userRepository.save(user);
     }
 
     public List<User> searchUsers(String keyword) {
@@ -295,6 +299,7 @@ public class UserService {
         }
         return userRepository.searchByNameOrEmail(keyword.trim()).stream()
                 .filter(u -> u.getRole() != User.Role.ADMIN)
+                .filter(u -> !User.STATUS_DELETED.equals(u.getStatus()))
                 .toList();
     }
 
@@ -309,6 +314,7 @@ public class UserService {
     public UsersOverviewDto getUserOverview() {
         List<User> users = userRepository.findAll().stream()
                 .filter(u -> u.getRole() != User.Role.ADMIN)
+                .filter(u -> !User.STATUS_DELETED.equals(u.getStatus()))
                 .toList();
 
         long active = users.stream().filter(u -> User.STATUS_ACTIVE.equals(u.getStatus())).count();

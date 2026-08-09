@@ -23,7 +23,8 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
         if (!user.isActive()
                 || User.STATUS_SUSPENDED.equals(user.getStatus())
-                || User.STATUS_BLOCKED.equals(user.getStatus())) {
+                || User.STATUS_BLOCKED.equals(user.getStatus())
+                || User.STATUS_DELETED.equals(user.getStatus())) {
             throw new UsernameNotFoundException("User account is not active");
         }
         return new org.springframework.security.core.userdetails.User(

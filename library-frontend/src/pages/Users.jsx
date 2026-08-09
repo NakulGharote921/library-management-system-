@@ -51,6 +51,11 @@ const STATUS_META = {
     badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
     dot: 'bg-red-500',
   },
+  DELETED: {
+    label: 'Deleted',
+    badge: 'bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    dot: 'bg-gray-400',
+  },
 }
 
 const PLAN_COLORS = {
@@ -1162,7 +1167,7 @@ export default function Users() {
         }
       >
         <p className="text-sm text-gray-600 dark:text-gray-300">
-          Are you sure you want to delete <span className="font-semibold">{deleteTarget?.name}</span>? Active loans may prevent deletion.
+          Are you sure you want to delete <span className="font-semibold">{deleteTarget?.name}</span>? Their record will be hidden and they will no longer be able to sign in. Active loans may prevent deletion.
         </p>
       </Modal>
     </div>

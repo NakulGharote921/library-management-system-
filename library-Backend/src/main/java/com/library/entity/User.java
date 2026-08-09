@@ -28,6 +28,7 @@ public class User {
     public static final String STATUS_PENDING_VERIFICATION = "PENDING_VERIFICATION";
     public static final String STATUS_SUSPENDED = "SUSPENDED";
     public static final String STATUS_BLOCKED = "BLOCKED";
+    public static final String STATUS_DELETED = "DELETED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
