@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import javax.crypto.Mac;
@@ -153,6 +154,10 @@ public class CashfreeGateway {
                 // keep generic message
             }
             log.error("Cashfree API call failed: {}", message);
+            throw new BusinessException(message);
+        } catch (RestClientException e) {
+            String message = "Cashfree API unreachable: " + e.getMessage();
+            log.error(message);
             throw new BusinessException(message);
         }
     }
