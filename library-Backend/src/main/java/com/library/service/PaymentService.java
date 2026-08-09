@@ -65,16 +65,10 @@ public class PaymentService {
         int amountPaise = razorpayGateway.toPaise(fine.getAmount());
         log.info("Fine payment order started: fineId={}, amountPaise={}, currency=INR", fineId, amountPaise);
 
-        Optional<PaymentTransaction> active = reusablePending(
-                paymentTransactionRepository.findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES),
-                amountPaise);
-        if (active.isPresent()) {
-            PaymentTransaction existing = active.get();
-            if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
-                throw new BusinessException(HttpStatus.CONFLICT, "Fine is already paid.");
-            }
-            log.info("Reusing existing pending payment order {} for fine id={}", existing.getRazorpayOrderId(), fineId);
-            return toOrderDto(existing, amountPaise);
+        Optional<PaymentTransaction> existing = paymentTransactionRepository
+                .findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES);
+        if (existing.isPresent() && PaymentTransaction.STATUS_SUCCESS.equals(existing.get().getStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "Fine is already paid.");
         }
 
         try {
@@ -151,17 +145,10 @@ public class PaymentService {
             return toOrderDto(paymentTransactionRepository.save(transaction), 0);
         }
 
-        Optional<PaymentTransaction> active = reusablePending(
-                paymentTransactionRepository.findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES),
-                amountPaise);
-        if (active.isPresent()) {
-            PaymentTransaction existing = active.get();
-            if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
-                throw new BusinessException(HttpStatus.CONFLICT, "Subscription is already paid.");
-            }
-            log.info("Reusing existing pending subscription payment order {} for subscription id={}",
-                    existing.getRazorpayOrderId(), subscriptionId);
-            return toOrderDto(existing, amountPaise);
+        Optional<PaymentTransaction> existing = paymentTransactionRepository
+                .findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES);
+        if (existing.isPresent() && PaymentTransaction.STATUS_SUCCESS.equals(existing.get().getStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT, "Subscription is already paid.");
         }
 
         try {
@@ -202,40 +189,6 @@ public class PaymentService {
                 .currency(transaction.getCurrency() == null ? "INR" : transaction.getCurrency())
                 .keyId(razorpayGateway.getKeyId())
                 .build();
-    }
-
-    private Optional<PaymentTransaction> reusablePending(Optional<PaymentTransaction> active, int expectedPaise) {
-        if (active.isEmpty()) {
-            return active;
-        }
-        PaymentTransaction existing = active.get();
-        if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
-            return active;
-        }
-        boolean stale = existing.getCreatedAt() == null
-                || existing.getCreatedAt().isBefore(LocalDateTime.now().minusMinutes(15));
-        if (stale) {
-            log.info("Stale pending payment {} (created {}) - marking FAILED, creating fresh order",
-                    existing.getRazorpayOrderId(), existing.getCreatedAt());
-            failTransaction(existing);
-            return Optional.empty();
-        }
-        try {
-            Order razorpayOrder = razorpayGateway.fetchOrder(existing.getRazorpayOrderId());
-            int orderPaise = ((Number) razorpayOrder.get("amount")).intValue();
-            if (orderPaise != expectedPaise) {
-                log.warn("Pending order {} has amount {} paise, expected {} paise - marking FAILED, creating fresh order",
-                        existing.getRazorpayOrderId(), orderPaise, expectedPaise);
-                failTransaction(existing);
-                return Optional.empty();
-            }
-            return active;
-        } catch (Exception e) {
-            log.warn("Could not verify razorpay order {} - marking FAILED, creating fresh order: {}",
-                    existing.getRazorpayOrderId(), e.getMessage());
-            failTransaction(existing);
-            return Optional.empty();
-        }
     }
 
     private void failTransaction(PaymentTransaction transaction) {
