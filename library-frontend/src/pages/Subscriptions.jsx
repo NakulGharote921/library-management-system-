@@ -229,7 +229,7 @@ export default function Subscriptions() {
   const handlePurchase = async (planId) => {
     try {
       const sub = await userSubscriptionService.purchase(planId)
-      toast.success(`Purchased ${sub.plan?.name || 'plan'} — pending payment`)
+      toast.success(`Purchased ${sub.plan?.name || 'plan'}`)
       load()
     } catch (e) {
       toast.error(getApiErrorMessage(e))

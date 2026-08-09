@@ -179,6 +179,14 @@ export const fineService = {
 }
 
 export const paymentService = {
+  createOrder: (fineId, paymentType = 'FINE') =>
+    api.post('/payments/create-order', { fineId, paymentType }).then((r) => r.data),
+  createSubscriptionOrder: (subscriptionId) =>
+    api.post('/payments/create-subscription-order', { subscriptionId }).then((r) => r.data),
+  verify: (orderId, paymentId) =>
+    api.post('/payments/verify', { orderId, paymentId }).then((r) => r.data),
+  markFailed: (orderId) =>
+    api.post(`/payments/${orderId}/failed`).then((r) => r.data),
   getMy: () => api.get('/payments/my').then((r) => r.data),
   getByOrderId: (orderId) => api.get(`/payments/order/${orderId}`).then((r) => r.data),
   getById: (id) => api.get(`/payments/${id}`).then((r) => r.data),

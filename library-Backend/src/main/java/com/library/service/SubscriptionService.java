@@ -2,10 +2,10 @@ package com.library.service;
 
 import com.library.dto.MembershipSummaryDto;
 import com.library.entity.IssuedBook;
+import com.library.entity.PaymentTransaction;
 import com.library.entity.SubscriptionPlan;
 import com.library.entity.User;
 import com.library.entity.UserSubscription;
-import com.library.entity.PaymentTransaction;
 import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
 import com.library.repository.IssuedBookRepository;
@@ -100,32 +100,41 @@ public class SubscriptionService {
         }
         Optional<UserSubscription> pending = userSubscriptionRepository
                 .findTopByUserAndPlanIdAndStatusOrderByCreatedAtDesc(user, planId, UserSubscription.STATUS_PENDING);
-        UserSubscription sub;
         if (pending.isPresent()) {
-            sub = pending.get();
-            if (UserSubscription.STATUS_ACTIVE.equals(sub.getStatus())) {
-                return sub;
+            log.info("Reusing existing pending subscription id={} for user {} plan {}",
+                    pending.get().getId(), user.getEmail(), planId);
+            if (User.Role.ADMIN.equals(user.getRole())) {
+                return activateAdminSubscription(user, pending.get(), plan);
             }
-        } else {
-            LocalDate start = LocalDate.now();
-            LocalDate end = start.plusDays(plan.getValidityDays());
-            sub = UserSubscription.builder()
-                    .user(user)
-                    .plan(plan)
-                    .startDate(start)
-                    .endDate(end)
-                    .status(UserSubscription.STATUS_PENDING)
-                    .build();
-            sub = userSubscriptionRepository.save(sub);
+            return pending.get();
         }
+        LocalDate start = LocalDate.now();
+        LocalDate end = start.plusDays(plan.getValidityDays());
+        UserSubscription sub = UserSubscription.builder()
+                .user(user)
+                .plan(plan)
+                .startDate(start)
+                .endDate(end)
+                .status(UserSubscription.STATUS_PENDING)
+                .build();
+        sub = userSubscriptionRepository.save(sub);
+        if (User.Role.ADMIN.equals(user.getRole())) {
+            return activateAdminSubscription(user, sub, plan);
+        }
+        log.info("Subscription purchase started (pending payment): userId={}, planId={}, priceInRupees={}",
+                user.getId(), planId, plan.getPrice());
+        return sub;
+    }
+
+    @Transactional
+    public UserSubscription activateAdminSubscription(User user, UserSubscription sub, SubscriptionPlan plan) {
         sub.setStatus(UserSubscription.STATUS_ACTIVE);
         sub.setActivatedAt(LocalDateTime.now());
         sub = userSubscriptionRepository.save(sub);
-
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .user(user)
                 .subscription(sub)
-                .razorpayOrderId("FREE_" + sub.getId())
+                .razorpayOrderId("ADMIN_" + sub.getId())
                 .amount(plan.getPrice() == null ? BigDecimal.ZERO : plan.getPrice())
                 .currency("INR")
                 .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
@@ -134,16 +143,17 @@ public class SubscriptionService {
                 .completedAt(LocalDateTime.now())
                 .build();
         paymentTransactionRepository.save(transaction);
-        log.info("Subscription activated without payment gateway: subscriptionId={}, planId={}, user={}",
-                sub.getId(), planId, user.getEmail());
+        log.info("Admin {} auto-activated subscription id={} for plan {}", user.getEmail(), sub.getId(), plan.getName());
         return sub;
     }
 
     @Transactional
-    public UserSubscription activateSubscription(Long subscriptionId) {
+    public UserSubscription activateSubscription(Long subscriptionId, String orderId, String paymentId) {
         UserSubscription sub = userSubscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new ResourceNotFoundException("UserSubscription", subscriptionId));
         sub.setStatus(UserSubscription.STATUS_ACTIVE);
+        sub.setRazorpayOrderId(orderId);
+        sub.setRazorpayPaymentId(paymentId);
         sub.setActivatedAt(LocalDateTime.now());
         return userSubscriptionRepository.save(sub);
     }
@@ -159,6 +169,11 @@ public class SubscriptionService {
 
     public List<UserSubscription> getUserSubscriptions(User user) {
         return userSubscriptionRepository.findByUserOrderByCreatedAtDesc(user);
+    }
+
+    public UserSubscription getUserSubscriptionById(Long id) {
+        return userSubscriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("UserSubscription", id));
     }
 
     @Transactional

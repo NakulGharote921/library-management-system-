@@ -4,7 +4,7 @@ import { Award, BookOpen, Check, CircleCheck, Crown, RefreshCw, X } from 'lucide
 import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
-import { getApiErrorMessage, subscriptionService, userSubscriptionService } from '../services/api.js'
+import { getApiErrorMessage, paymentService, subscriptionService, userSubscriptionService } from '../services/api.js'
 import { parsePlanFeatures } from '../utils/planFeatures.js'
 
 function PlanCheckItem({ text, included }) {
@@ -23,6 +23,7 @@ export default function MembershipPlans() {
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState(null)
   const payingRef = useRef(false)
+  const settledRef = useRef(false)
   const lastErrorToastRef = useRef({ msg: '', at: 0 })
 
   const showErrorOnce = useCallback((msg) => {
@@ -53,18 +54,98 @@ export default function MembershipPlans() {
   const handlePurchase = async (planId) => {
     if (payingRef.current) return
     payingRef.current = true
+    settledRef.current = false
     setPurchasing(planId)
     const finish = () => {
       payingRef.current = false
       setPurchasing(null)
     }
     try {
-      const sub = await userSubscriptionService.purchase(planId)
-      toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
-    } catch (err) {
-      console.debug('Subscription purchase failed for plan', planId, err)
-      showErrorOnce(getApiErrorMessage(err))
-    } finally {
+      let sub
+      try {
+        sub = await userSubscriptionService.purchase(planId)
+      } catch (err) {
+        console.debug('Subscription purchase failed for plan', planId, err)
+        showErrorOnce(getApiErrorMessage(err))
+        finish()
+        load()
+        return
+      }
+      let order
+      try {
+        order = await paymentService.createSubscriptionOrder(sub.id)
+      } catch (err) {
+        console.debug('Order creation failed for subscription', sub.id, err)
+        showErrorOnce('Unable to create payment order. Please try again.')
+        finish()
+        load()
+        return
+      }
+      console.debug('Cashfree order created for subscription', sub.id, { orderId: order.orderId, amount: order.amount, currency: order.currency })
+
+      if (!order.amount || Number(order.amount) <= 0) {
+        toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
+        finish()
+        load()
+        return
+      }
+
+      if (!order.paymentSessionId) {
+        console.warn('Cashfree order missing paymentSessionId', order)
+        showErrorOnce('Unable to start payment. Please try again.')
+        finish()
+        load()
+        return
+      }
+
+      let cashfree
+      try {
+        cashfree = window.Cashfree({ mode: import.meta.env.VITE_CASHFREE_MODE || 'sandbox' })
+      } catch (err) {
+        console.debug('Cashfree SDK could not be initialized', err)
+        showErrorOnce('Payment could not be started. Please try again.')
+        finish()
+        load()
+        return
+      }
+
+      const onSuccess = async (data) => {
+        if (settledRef.current) return
+        settledRef.current = true
+        try {
+          const cfOrderId = data?.order?.orderId || order.orderId
+          const cfPaymentId = data?.payment?.cfPaymentId
+          await paymentService.verify(cfOrderId, cfPaymentId)
+          toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
+        } catch (err) {
+          console.debug('Payment verification failed for subscription', sub.id, err)
+          showErrorOnce('Payment verification failed. Please contact support.')
+        } finally {
+          finish()
+          load()
+        }
+      }
+
+      cashfree.checkout({
+        paymentSessionId: order.paymentSessionId,
+        onSuccess,
+        onFailure: (data) => {
+          if (settledRef.current) return
+          settledRef.current = true
+          console.debug('Cashfree payment failed for subscription', sub.id, data)
+          showErrorOnce('Payment failed. Please try again.')
+          finish()
+          load()
+        },
+        onClose: () => {
+          if (settledRef.current) return
+          settledRef.current = true
+          finish()
+          load()
+        },
+      })
+    } catch (e) {
+      showErrorOnce(getApiErrorMessage(e))
       finish()
       load()
     }

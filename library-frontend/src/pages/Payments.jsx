@@ -53,6 +53,9 @@ export default function Payments() {
   const [tab, setTab] = useState('all')
   const [typeFilter, setTypeFilter] = useState('')
   const [receiptTxn, setReceiptTxn] = useState(null)
+  const [payingId, setPayingId] = useState(null)
+  const payingRef = useRef(false)
+  const settledRef = useRef(false)
   const lastErrorToastRef = useRef({ msg: '', at: 0 })
 
   const showErrorOnce = useCallback((msg) => {
@@ -159,8 +162,100 @@ export default function Payments() {
     }
   }
 
+  const handlePay = async (fineId) => {
+    if (payingRef.current) return
+    payingRef.current = true
+    settledRef.current = false
+    setPayingId(fineId)
+    const finish = () => {
+      payingRef.current = false
+      setPayingId(null)
+    }
+    try {
+      let order
+      try {
+        order = await paymentService.createOrder(fineId)
+      } catch (err) {
+        console.debug('Order creation failed for fine', fineId, err)
+        showErrorOnce('Unable to create payment order. Please try again.')
+        finish()
+        return
+      }
+      console.debug('Cashfree order created for fine', fineId, { orderId: order.orderId, amount: order.amount, currency: order.currency })
+
+      if (!order.amount || Number(order.amount) <= 0) {
+        showErrorOnce('Invalid fine amount. Please contact support.')
+        finish()
+        return
+      }
+
+      if (!order.paymentSessionId) {
+        console.warn('Cashfree order missing paymentSessionId', order)
+        showErrorOnce('Unable to start payment. Please try again.')
+        finish()
+        return
+      }
+
+      let cashfree
+      try {
+        cashfree = window.Cashfree({ mode: import.meta.env.VITE_CASHFREE_MODE || 'sandbox' })
+      } catch (err) {
+        console.debug('Cashfree SDK could not be initialized', err)
+        showErrorOnce('Payment could not be started. Please try again.')
+        finish()
+        return
+      }
+
+      const onSuccess = async (data) => {
+        if (settledRef.current) return
+        settledRef.current = true
+        try {
+          const cfOrderId = data?.order?.orderId || order.orderId
+          const cfPaymentId = data?.payment?.cfPaymentId
+          await paymentService.verify(cfOrderId, cfPaymentId)
+          toast.success('Fine paid successfully')
+        } catch (err) {
+          console.debug('Payment verification failed for fine', fineId, err)
+          showErrorOnce('Payment verification failed. Please contact support.')
+        } finally {
+          finish()
+          load(true)
+        }
+      }
+
+      cashfree.checkout({
+        paymentSessionId: order.paymentSessionId,
+        onSuccess,
+        onFailure: (data) => {
+          if (settledRef.current) return
+          settledRef.current = true
+          const failedOrderId = data?.order?.orderId || order.orderId
+          paymentService.markFailed(failedOrderId).catch(() => {})
+          console.debug('Cashfree payment failed for fine', fineId, data)
+          showErrorOnce('Payment failed. Please try again.')
+          finish()
+          load(true)
+        },
+        onClose: () => {
+          if (settledRef.current) return
+          settledRef.current = true
+          finish()
+          load(true)
+        },
+      })
+    } catch {
+      showErrorOnce('Payment could not be started. Please try again.')
+      finish()
+    }
+  }
+
   const renderActions = (txn, isPendingFine, fineId) => (
     <div className="flex flex-wrap items-center justify-end gap-2">
+      {isPendingFine && role !== 'ADMIN' && (
+        <Button size="sm" variant="primary" type="button" disabled={payingId !== null} loading={payingId === fineId} onClick={() => handlePay(fineId)}>
+          Pay Now
+        </Button>
+      )}
       {isPendingFine && role === 'ADMIN' && (
         <>
           <Button size="sm" variant="primary" type="button" onClick={() => handleMarkPaid(fineId)}>
