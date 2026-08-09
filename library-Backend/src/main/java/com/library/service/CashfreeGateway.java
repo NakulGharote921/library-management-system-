@@ -8,8 +8,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.converter.HttpMessageConversionException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import javax.crypto.Mac;
@@ -17,6 +20,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -53,7 +57,10 @@ public class CashfreeGateway {
         String baseUrl = "production".equalsIgnoreCase(environment)
                 ? "https://api.cashfree.com/pg"
                 : "https://sandbox.cashfree.com/pg";
-        this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(10));
+        requestFactory.setReadTimeout(Duration.ofSeconds(20));
+        this.restClient = RestClient.builder().baseUrl(baseUrl).requestFactory(requestFactory).build();
         log.info("CashfreeGateway initialized for environment: {} (appId configured: {})",
                 environment, appId != null && !appId.isBlank());
     }
@@ -154,6 +161,9 @@ public class CashfreeGateway {
             }
             log.error("Cashfree API call failed: {}", message);
             throw new BusinessException(message);
+        } catch (RestClientException | HttpMessageConversionException e) {
+            log.error("Cashfree API call failed (connection/response error): {}", e.getMessage());
+            throw new BusinessException("Cashfree API is unreachable, please try again: " + e.getMessage());
         }
     }
 
