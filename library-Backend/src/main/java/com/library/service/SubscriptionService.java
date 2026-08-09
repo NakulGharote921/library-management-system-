@@ -5,9 +5,11 @@ import com.library.entity.IssuedBook;
 import com.library.entity.SubscriptionPlan;
 import com.library.entity.User;
 import com.library.entity.UserSubscription;
+import com.library.entity.PaymentTransaction;
 import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
 import com.library.repository.IssuedBookRepository;
+import com.library.repository.PaymentTransactionRepository;
 import com.library.repository.UserRepository;
 import com.library.repository.UserSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +17,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -29,6 +33,7 @@ public class SubscriptionService {
     private final SubscriptionPlanService planService;
     private final UserRepository userRepository;
     private final IssuedBookRepository issuedBookRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Transactional(readOnly = true)
     public Optional<UserSubscription> getActiveSubscription(User user) {
@@ -95,30 +100,51 @@ public class SubscriptionService {
         }
         Optional<UserSubscription> pending = userSubscriptionRepository
                 .findTopByUserAndPlanIdAndStatusOrderByCreatedAtDesc(user, planId, UserSubscription.STATUS_PENDING);
+        UserSubscription sub;
         if (pending.isPresent()) {
-            log.info("Reusing existing pending subscription id={} for user {} plan {}", pending.get().getId(), user.getEmail(), planId);
-            return pending.get();
+            sub = pending.get();
+            if (UserSubscription.STATUS_ACTIVE.equals(sub.getStatus())) {
+                return sub;
+            }
+        } else {
+            LocalDate start = LocalDate.now();
+            LocalDate end = start.plusDays(plan.getValidityDays());
+            sub = UserSubscription.builder()
+                    .user(user)
+                    .plan(plan)
+                    .startDate(start)
+                    .endDate(end)
+                    .status(UserSubscription.STATUS_PENDING)
+                    .build();
+            sub = userSubscriptionRepository.save(sub);
         }
-        LocalDate start = LocalDate.now();
-        LocalDate end = start.plusDays(plan.getValidityDays());
-        UserSubscription sub = UserSubscription.builder()
+        sub.setStatus(UserSubscription.STATUS_ACTIVE);
+        sub.setActivatedAt(LocalDateTime.now());
+        sub = userSubscriptionRepository.save(sub);
+
+        PaymentTransaction transaction = PaymentTransaction.builder()
                 .user(user)
-                .plan(plan)
-                .startDate(start)
-                .endDate(end)
-                .status(UserSubscription.STATUS_PENDING)
+                .subscription(sub)
+                .razorpayOrderId("FREE_" + sub.getId())
+                .amount(plan.getPrice() == null ? BigDecimal.ZERO : plan.getPrice())
+                .currency("INR")
+                .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
+                .status(PaymentTransaction.STATUS_SUCCESS)
+                .paymentMethod("MANUAL")
+                .completedAt(LocalDateTime.now())
                 .build();
-        return userSubscriptionRepository.save(sub);
+        paymentTransactionRepository.save(transaction);
+        log.info("Subscription activated without payment gateway: subscriptionId={}, planId={}, user={}",
+                sub.getId(), planId, user.getEmail());
+        return sub;
     }
 
     @Transactional
-    public UserSubscription activateSubscription(Long subscriptionId, String razorpayOrderId, String razorpayPaymentId) {
+    public UserSubscription activateSubscription(Long subscriptionId) {
         UserSubscription sub = userSubscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new ResourceNotFoundException("UserSubscription", subscriptionId));
         sub.setStatus(UserSubscription.STATUS_ACTIVE);
-        sub.setRazorpayOrderId(razorpayOrderId);
-        sub.setRazorpayPaymentId(razorpayPaymentId);
-        sub.setActivatedAt(java.time.LocalDateTime.now());
+        sub.setActivatedAt(LocalDateTime.now());
         return userSubscriptionRepository.save(sub);
     }
 
@@ -129,11 +155,6 @@ public class SubscriptionService {
         sub.setStatus(UserSubscription.STATUS_CANCELLED);
         sub.setCancelledAt(java.time.LocalDateTime.now());
         userSubscriptionRepository.save(sub);
-    }
-
-    public UserSubscription getUserSubscriptionById(Long id) {
-        return userSubscriptionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("UserSubscription", id));
     }
 
     public List<UserSubscription> getUserSubscriptions(User user) {

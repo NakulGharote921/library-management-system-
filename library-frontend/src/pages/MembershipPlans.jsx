@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 import { Award, BookOpen, Check, CircleCheck, Crown, RefreshCw, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
-import { selectUser } from '../store/authSlice.js'
-import { getApiErrorMessage, paymentService, subscriptionService, userSubscriptionService } from '../services/api.js'
+import { getApiErrorMessage, subscriptionService, userSubscriptionService } from '../services/api.js'
 import { parsePlanFeatures } from '../utils/planFeatures.js'
 
 function PlanCheckItem({ text, included }) {
@@ -20,13 +18,11 @@ function PlanCheckItem({ text, included }) {
 
 export default function MembershipPlans() {
   const navigate = useNavigate()
-  const user = useSelector(selectUser)
   const [plans, setPlans] = useState([])
   const [activeSub, setActiveSub] = useState(null)
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState(null)
   const payingRef = useRef(false)
-  const rzpSettledRef = useRef(false)
   const lastErrorToastRef = useRef({ msg: '', at: 0 })
 
   const showErrorOnce = useCallback((msg) => {
@@ -57,111 +53,18 @@ export default function MembershipPlans() {
   const handlePurchase = async (planId) => {
     if (payingRef.current) return
     payingRef.current = true
-    rzpSettledRef.current = false
     setPurchasing(planId)
     const finish = () => {
       payingRef.current = false
       setPurchasing(null)
     }
     try {
-      let sub
-      try {
-        sub = await userSubscriptionService.purchase(planId)
-      } catch (err) {
-        console.debug('Subscription purchase failed for plan', planId, err)
-        showErrorOnce(getApiErrorMessage(err))
-        finish()
-        load()
-        return
-      }
-      let order
-      try {
-        order = await paymentService.createSubscriptionOrder(sub.id)
-      } catch (err) {
-        console.debug('Order creation failed for subscription', sub.id, err)
-        showErrorOnce('Unable to create payment order. Please try again.')
-        finish()
-        load()
-        return
-      }
-      console.debug('Razorpay order created for subscription', sub.id, { orderId: order.orderId, amount: order.amount, currency: order.currency })
-
-      if (!order.amount || order.amount <= 0) {
-        toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
-        finish()
-        load()
-        return
-      }
-
-      const amountInPaise = Number(order.amount)
-      const priceInRupees = Number(order.price) > 0
-        ? Number(order.price)
-        : (amountInPaise > 0 ? amountInPaise / 100 : Number(sub.plan?.price || 0))
-      const planPriceInRupees = Number(sub.plan?.price)
-      if (planPriceInRupees > 0 && priceInRupees !== planPriceInRupees) {
-        console.error(
-          `PRICE MISMATCH: plan=${planPriceInRupees} rupees, got order=${priceInRupees} rupees — aborting checkout to avoid wrong charge`
-        )
-        showErrorOnce('Price mismatch detected. Payment order cancelled — please retry.')
-        finish()
-        load()
-        return
-      }
-      const options = {
-        key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
-        currency: order.currency || 'INR',
-        name: 'KodNest Library',
-        description: `${sub.plan?.name || 'Membership'} Membership — ${priceInRupees.toLocaleString('en-IN')}`,
-        order_id: order.orderId,
-        handler: async (response) => {
-          if (rzpSettledRef.current) return
-          rzpSettledRef.current = true
-          try {
-            await paymentService.verify(
-              response.razorpay_order_id,
-              response.razorpay_payment_id,
-              response.razorpay_signature,
-            )
-            toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
-          } catch (err) {
-            console.debug('Payment verification failed for subscription', sub.id, err)
-            showErrorOnce('Payment verification failed. Please contact support.')
-          } finally {
-            finish()
-            load()
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            if (rzpSettledRef.current) return
-            rzpSettledRef.current = true
-            finish()
-            load()
-          },
-        },
-        prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' },
-        theme: { color: '#2563EB' },
-      }
-      let rzp
-      try {
-        rzp = new window.Razorpay(options)
-      } catch (err) {
-        console.debug('Razorpay checkout could not be started', err)
-        showErrorOnce('Payment could not be started. Please try again.')
-        finish()
-        load()
-        return
-      }
-      rzp.on('payment.failed', (response) => {
-        if (rzpSettledRef.current) return
-        rzpSettledRef.current = true
-        showErrorOnce(`Payment failed: ${response.error.description}`)
-        finish()
-        load()
-      })
-      rzp.open()
-    } catch (e) {
-      showErrorOnce(getApiErrorMessage(e))
+      const sub = await userSubscriptionService.purchase(planId)
+      toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
+    } catch (err) {
+      console.debug('Subscription purchase failed for plan', planId, err)
+      showErrorOnce(getApiErrorMessage(err))
+    } finally {
       finish()
       load()
     }

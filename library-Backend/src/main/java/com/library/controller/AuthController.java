@@ -38,16 +38,11 @@ public class AuthController {
     @Value("${GOOGLE_CLIENT_ID:}")
     private String googleClientId;
 
-    @Value("${razorpay.key-id:}")
-    private String razorpayKeyId;
-
     @GetMapping("/config")
     public Map<String, Object> config() {
         return Map.of(
                 "googleOAuthEnabled",
-                googleClientId != null && !googleClientId.isBlank(),
-                "razorpayEnabled",
-                razorpayKeyId != null && !razorpayKeyId.isBlank());
+                googleClientId != null && !googleClientId.isBlank());
     }
 
     @PostMapping("/login")

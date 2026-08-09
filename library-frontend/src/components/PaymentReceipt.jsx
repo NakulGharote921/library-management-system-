@@ -59,7 +59,7 @@ export default function PaymentReceipt({ txn, memberName, memberEmail }) {
   const purchasedOn = sub?.startDate || txDate
   const expiresOn = sub?.endDate
   const money = fmtMoney(txn.amount)
-  const method = safe(txn.paymentMethod) || 'Razorpay'
+  const method = safe(txn.paymentMethod) || 'Manual'
 
   return (
     <div className="receipt w-full bg-white text-slate-900">

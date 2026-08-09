@@ -50,12 +50,9 @@ export default function Payments() {
   const user = useSelector(selectUser)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [payingId, setPayingId] = useState(null)
   const [tab, setTab] = useState('all')
   const [typeFilter, setTypeFilter] = useState('')
   const [receiptTxn, setReceiptTxn] = useState(null)
-  const payingRef = useRef(false)
-  const rzpSettledRef = useRef(false)
   const lastErrorToastRef = useRef({ msg: '', at: 0 })
 
   const showErrorOnce = useCallback((msg) => {
@@ -122,92 +119,6 @@ export default function Payments() {
     return result
   }, [transactions, tab, typeFilter])
 
-  const handlePay = async (fineId) => {
-    if (payingRef.current) return
-    payingRef.current = true
-    rzpSettledRef.current = false
-    setPayingId(fineId)
-    const finish = () => {
-      payingRef.current = false
-      setPayingId(null)
-    }
-    try {
-      let order
-      try {
-        order = await paymentService.createOrder(fineId)
-      } catch (err) {
-        console.debug('Order creation failed for fine', fineId, err)
-        showErrorOnce('Unable to create payment order. Please try again.')
-        finish()
-        return
-      }
-      console.debug('Razorpay order created for fine', fineId, { orderId: order.orderId, amount: order.amount, currency: order.currency })
-      const options = {
-        key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
-        currency: order.currency || 'INR',
-        name: 'KodNest Library',
-        description: `Fine #${fineId}`,
-        order_id: order.orderId,
-        handler: async (response) => {
-          if (rzpSettledRef.current) return
-          rzpSettledRef.current = true
-          try {
-            const updated = await paymentService.verify(
-              response.razorpay_order_id,
-              response.razorpay_payment_id,
-              response.razorpay_signature,
-            )
-            setTransactions((prev) =>
-              prev.map((t) =>
-                (t.fineId === fineId || t.fine?.id === fineId)
-                  ? { ...t, status: 'SUCCESS', razorpayPaymentId: updated.razorpayPaymentId, razorpayOrderId: updated.razorpayOrderId, completedAt: updated.completedAt }
-                  : t
-              )
-            )
-            toast.success('Payment successful')
-          } catch (err) {
-            console.debug('Payment verification failed for fine', fineId, err)
-            showErrorOnce('Payment verification failed. Please contact support.')
-          } finally {
-            finish()
-            load(true)
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            if (rzpSettledRef.current) return
-            rzpSettledRef.current = true
-            finish()
-          },
-        },
-        prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' },
-        theme: { color: '#2563EB' },
-      }
-      let rzp
-      try {
-        rzp = new window.Razorpay(options)
-      } catch (err) {
-        console.debug('Razorpay checkout could not be started', err)
-        showErrorOnce('Payment could not be started. Please try again.')
-        finish()
-        return
-      }
-      rzp.on('payment.failed', (response) => {
-        if (rzpSettledRef.current) return
-        rzpSettledRef.current = true
-        const failedOrderId = response?.error?.metadata?.order_id || order.orderId
-        paymentService.markFailed(failedOrderId).catch(() => {})
-        showErrorOnce(`Payment failed: ${response?.error?.description || 'Payment was not completed'}`)
-        finish()
-      })
-      rzp.open()
-    } catch {
-      showErrorOnce('Payment could not be started. Please try again.')
-      finish()
-      load(true)
-    }
-  }
-
   const handlePrint = () => window.print()
 
   const handlePdf = () => window.print()
@@ -231,17 +142,34 @@ export default function Payments() {
     }
   }
 
+  const handleMarkPaid = async (fineId) => {
+    try {
+      await fineService.markPaid(fineId)
+      setTransactions((prev) =>
+        prev.map((t) =>
+          (t.fineId === fineId || t.fine?.id === fineId)
+            ? { ...t, status: 'SUCCESS' }
+            : t
+        )
+      )
+      toast.success('Fine marked as paid')
+      load(true)
+    } catch (e) {
+      toast.error(getApiErrorMessage(e))
+    }
+  }
+
   const renderActions = (txn, isPendingFine, fineId) => (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      {isPendingFine && role !== 'ADMIN' && (
-        <Button size="sm" variant="primary" type="button" disabled={payingId !== null} loading={payingId === fineId} onClick={() => handlePay(fineId)}>
-          Pay Now
-        </Button>
-      )}
       {isPendingFine && role === 'ADMIN' && (
-        <Button size="sm" variant="secondary" type="button" onClick={() => handleWaive(fineId)}>
-          Waive
-        </Button>
+        <>
+          <Button size="sm" variant="primary" type="button" onClick={() => handleMarkPaid(fineId)}>
+            Mark Paid
+          </Button>
+          <Button size="sm" variant="secondary" type="button" onClick={() => handleWaive(fineId)}>
+            Waive
+          </Button>
+        </>
       )}
       {(txn.status === 'SUCCESS' || txn.status === 'PAID') && (
         <button

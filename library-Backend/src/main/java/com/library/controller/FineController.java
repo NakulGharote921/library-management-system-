@@ -51,6 +51,18 @@ public class FineController {
         return ResponseEntity.ok(fineService.getAllFines());
     }
 
+    @PostMapping("/{fineId}/paid")
+    public ResponseEntity<Fine> markFinePaid(
+            @PathVariable Long fineId, Authentication auth) {
+        User user = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User", auth.getName()));
+        if (user.getRole() != User.Role.ADMIN) {
+            throw new BusinessException("Only administrators can mark fines as paid");
+        }
+        fineService.markFineAsPaid(fineId);
+        return ResponseEntity.ok(fineService.getFineById(fineId));
+    }
+
     @PostMapping("/{fineId}/waive")
     public ResponseEntity<Fine> waiveFine(
             @PathVariable Long fineId, @RequestBody Map<String, String> body,

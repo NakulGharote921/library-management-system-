@@ -68,7 +68,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/uploads/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/subscription-plans").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/home-stats").permitAll()
-                .requestMatchers("/api/payments/webhook").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()
             )

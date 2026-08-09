@@ -438,8 +438,7 @@ export default function Users() {
   const upgradeTo = async (plan) => {
     setUpgradingId(plan.id)
     try {
-      const sub = await userSubscriptionService.purchase(plan.id)
-      await userSubscriptionService.activate(sub.id, 'ADMIN', 'MANUAL')
+      await userSubscriptionService.purchase(plan.id)
       toast.success(`${upgradeTarget.name} is now on ${plan.name}`)
       setUpgradeOpen(false)
       load()

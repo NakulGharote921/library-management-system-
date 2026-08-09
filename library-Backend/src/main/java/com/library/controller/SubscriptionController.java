@@ -15,7 +15,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -33,17 +32,6 @@ public class SubscriptionController {
                 .orElseThrow(() -> new ResourceNotFoundException("User", auth.getName()));
         UserSubscription sub = subscriptionService.purchaseSubscription(user, planId);
         log.info("User {} purchased subscription plan id={}", user.getEmail(), planId);
-        return ResponseEntity.ok(sub);
-    }
-
-    @PostMapping("/{subscriptionId}/activate")
-    public ResponseEntity<UserSubscription> activate(
-            @PathVariable Long subscriptionId,
-            @RequestBody Map<String, String> body) {
-        String orderId = body.get("razorpayOrderId");
-        String paymentId = body.get("razorpayPaymentId");
-        UserSubscription sub = subscriptionService.activateSubscription(subscriptionId, orderId, paymentId);
-        log.info("Subscription id={} activated for user id={}", subscriptionId, sub.getUser().getId());
         return ResponseEntity.ok(sub);
     }
 
