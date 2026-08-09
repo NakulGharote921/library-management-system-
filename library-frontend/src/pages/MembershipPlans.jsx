@@ -106,7 +106,6 @@ export default function MembershipPlans() {
         currency: order.currency || 'INR',
         name: 'KodNest Library',
         description: `${sub.plan?.name || 'Membership'} Membership — ${priceInRupees.toLocaleString('en-IN')}`,
-        image: window.location.protocol === 'https:' ? `${window.location.origin}/kodnest-logo.png` : undefined,
         order_id: order.orderId,
         handler: async (response) => {
           if (rzpSettledRef.current) return

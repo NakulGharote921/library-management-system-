@@ -149,7 +149,6 @@ export default function Payments() {
         currency: order.currency || 'INR',
         name: 'KodNest Library',
         description: `Fine #${fineId}`,
-        image: window.location.protocol === 'https:' ? `${window.location.origin}/kodnest-logo.png` : undefined,
         order_id: order.orderId,
         handler: async (response) => {
           if (rzpSettledRef.current) return
