@@ -328,7 +328,7 @@ export default function Users() {
         toast.success('Member updated')
       } else {
         await userService.create({ ...payload, role: form.role, password: form.password })
-        toast.success('Member added')
+        toast.success(form.role === 'ADMIN' ? 'Admin added' : 'Member added')
       }
       setModalOpen(false)
       load()
@@ -812,7 +812,7 @@ export default function Users() {
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={saveUser} loading={saving}>{editing ? 'Save Changes' : 'Add Member'}</Button>
+            <Button onClick={saveUser} loading={saving}>{editing ? 'Save Changes' : 'Add User'}</Button>
           </div>
         }
       >
@@ -836,6 +836,7 @@ export default function Users() {
                   className="w-full rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-gray-800 dark:bg-gray-800/60"
                 >
                   <option value="MEMBER">Member</option>
+                  <option value="ADMIN">Admin</option>
                 </select>
               </div>
               <FormInput label="Password" id="member-password" type="password" value={form.password} error={errors.password}
