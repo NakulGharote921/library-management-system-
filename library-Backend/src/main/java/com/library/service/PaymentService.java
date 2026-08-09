@@ -206,40 +206,15 @@ public class PaymentService {
         if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
             return active;
         }
-        boolean stale = existing.getCreatedAt() == null
-                || existing.getCreatedAt().isBefore(LocalDateTime.now().minusMinutes(15));
-        if (stale) {
-            log.info("Stale pending payment {} (created {}) - marking FAILED, creating fresh order",
-                    existing.getRazorpayOrderId(), existing.getCreatedAt());
-            existing.setStatus(PaymentTransaction.STATUS_FAILED);
-            existing.setCompletedAt(LocalDateTime.now());
-            paymentTransactionRepository.save(existing);
+        if (PaymentTransaction.STATUS_FAILED.equals(existing.getStatus())) {
             return Optional.empty();
         }
-        try {
-            CashfreeGateway.OrderResult order = cashfreeGateway.getOrder(existing.getRazorpayOrderId());
-            if (!"ACTIVE".equals(order.orderStatus())) {
-                log.warn("Pending order {} has status {} - marking FAILED, creating fresh order",
-                        existing.getRazorpayOrderId(), order.orderStatus());
-                existing.setStatus(PaymentTransaction.STATUS_FAILED);
-                existing.setCompletedAt(LocalDateTime.now());
-                paymentTransactionRepository.save(existing);
-                return Optional.empty();
-            }
-            if (order.amount() != null && expectedInRupees != null && order.amount().compareTo(expectedInRupees) != 0) {
-                log.warn("Pending order {} has amount {} rupees, expected {} rupees - marking FAILED, creating fresh order",
-                        existing.getRazorpayOrderId(), order.amount(), expectedInRupees);
-                existing.setStatus(PaymentTransaction.STATUS_FAILED);
-                existing.setCompletedAt(LocalDateTime.now());
-                paymentTransactionRepository.save(existing);
-                return Optional.empty();
-            }
-            return active;
-        } catch (Exception e) {
-            log.warn("Could not fetch Cashfree order {} - reusing pending transaction: {}",
-                    existing.getRazorpayOrderId(), e.getMessage());
-            return active;
-        }
+        log.info("Existing pending payment {} (created {}) is not reusable - marking FAILED, creating fresh order",
+                existing.getRazorpayOrderId(), existing.getCreatedAt());
+        existing.setStatus(PaymentTransaction.STATUS_FAILED);
+        existing.setCompletedAt(LocalDateTime.now());
+        paymentTransactionRepository.save(existing);
+        return Optional.empty();
     }
 
     @Transactional
@@ -340,7 +315,8 @@ public class PaymentService {
             }
 
             PaymentTransaction transaction = existing.get();
-            if (!PaymentTransaction.STATUS_PENDING.equals(transaction.getStatus())) {
+            if (!PaymentTransaction.STATUS_PENDING.equals(transaction.getStatus())
+                    && !PaymentTransaction.STATUS_FAILED.equals(transaction.getStatus())) {
                 log.info("Webhook ignored - payment already processed for order: {}", orderId);
                 return;
             }
