@@ -48,5 +48,24 @@ public class LegacySchemaMigration {
                 log.error("Schema migration FAILED for '{}': {}", sql, e.getMessage());
             }
         }
+        cleanupOrphanedTransactions();
+    }
+
+    private void cleanupOrphanedTransactions() {
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM payment_transactions WHERE razorpay_order_id IS NULL AND status = 'PENDING'",
+                    Integer.class);
+            if (count != null && count > 0) {
+                int deleted = jdbcTemplate.update(
+                        "DELETE FROM payment_transactions WHERE razorpay_order_id IS NULL AND status = 'PENDING'");
+                log.warn("Legacy cleanup: deleted {} orphaned PENDING transaction(s) without razorpayOrderId (leftover from the Cashfree migration)",
+                        deleted);
+            } else {
+                log.info("Legacy cleanup: no orphaned PENDING transactions found");
+            }
+        } catch (Exception e) {
+            log.error("Legacy cleanup FAILED: {}", e.getMessage());
+        }
     }
 }

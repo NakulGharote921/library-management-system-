@@ -217,9 +217,7 @@ public class PaymentService {
         if (stale) {
             log.info("Stale pending payment {} (created {}) - marking FAILED, creating fresh order",
                     existing.getRazorpayOrderId(), existing.getCreatedAt());
-            existing.setStatus(PaymentTransaction.STATUS_FAILED);
-            existing.setCompletedAt(LocalDateTime.now());
-            paymentTransactionRepository.save(existing);
+            failTransaction(existing);
             return Optional.empty();
         }
         try {
@@ -228,9 +226,7 @@ public class PaymentService {
             if (orderPaise != expectedPaise) {
                 log.warn("Pending order {} has amount {} paise, expected {} paise - marking FAILED, creating fresh order",
                         existing.getRazorpayOrderId(), orderPaise, expectedPaise);
-                existing.setStatus(PaymentTransaction.STATUS_FAILED);
-                existing.setCompletedAt(LocalDateTime.now());
-                paymentTransactionRepository.save(existing);
+                failTransaction(existing);
                 return Optional.empty();
             }
             return active;
@@ -239,6 +235,18 @@ public class PaymentService {
                     existing.getRazorpayOrderId(), e.getMessage());
             return active;
         }
+    }
+
+    private void failTransaction(PaymentTransaction transaction) {
+        if (transaction.getRazorpayOrderId() == null) {
+            log.warn("Deleting legacy pending transaction {} (no razorpayOrderId) - creating fresh order",
+                    transaction.getId());
+            paymentTransactionRepository.delete(transaction);
+            return;
+        }
+        transaction.setStatus(PaymentTransaction.STATUS_FAILED);
+        transaction.setCompletedAt(LocalDateTime.now());
+        paymentTransactionRepository.save(transaction);
     }
 
     @Transactional
