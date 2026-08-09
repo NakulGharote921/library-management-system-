@@ -163,6 +163,11 @@ export default function MembershipPlans() {
   const handleVerifyResult = useCallback((res, planName) => {
     if (res?.success && res?.paymentStatus === 'SUCCESS') {
       toast.success(`${planName || 'Plan'} activated! You can now borrow books.`)
+      const orderId = lastVerifyRef.current?.orderId
+      if (orderId) {
+        window.location.href = `/payment/cashfree/success?order_id=${encodeURIComponent(orderId)}`
+        return
+      }
       setPaymentResult({ state: 'success', planName: planName || 'Plan' })
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
       redirectTimerRef.current = setTimeout(() => navigate('/member/dashboard', { replace: true }), 1000)

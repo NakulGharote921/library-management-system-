@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,4 +18,6 @@ public class PaymentVerifyResponse {
     private boolean success;
     private String paymentStatus;
     private boolean membershipActivated;
+    private BigDecimal amount;
+    private String currency;
 }

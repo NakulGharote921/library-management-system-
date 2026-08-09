@@ -27,6 +27,7 @@ import BorrowRequests from './pages/BorrowRequests.jsx'
 import Payments from './pages/Payments.jsx'
 import Profile from './pages/Profile.jsx'
 import MembershipPlans from './pages/MembershipPlans.jsx'
+import CashfreePaymentSuccess from './pages/CashfreePaymentSuccess.jsx'
 import Subscriptions from './pages/Subscriptions.jsx'
 import ReadingHistory from './pages/ReadingHistory.jsx'
 import Wishlist from './pages/Wishlist.jsx'
@@ -87,6 +88,7 @@ export default function App() {
 
             <Route element={<ProtectedRoute />}>
               <Route path="member/dashboard" element={<RoleGuard roles={['MEMBER']}><Dashboard /></RoleGuard>} />
+              <Route path="payment/cashfree/success" element={<CashfreePaymentSuccess />} />
               <Route path="reading-history" element={<RoleGuard roles={['MEMBER']}><ReadingHistory /></RoleGuard>} />
               <Route path="wishlist" element={<RoleGuard roles={['MEMBER']}><Wishlist /></RoleGuard>} />
               <Route path="wishlist/*" element={<Navigate to="/wishlist" replace />} />

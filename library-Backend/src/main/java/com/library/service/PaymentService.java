@@ -47,6 +47,9 @@ public class PaymentService {
     @Value("${app.payments.notify-url:}")
     private String notifyUrl;
 
+    @Value("${FRONTEND_URL:http://localhost:3000}")
+    private String frontendUrl;
+
     @Transactional
     public OrderResponseDto createOrder(User user, Long fineId, String paymentType) {
         Fine fine = fineService.getFineById(fineId);
@@ -177,9 +180,10 @@ public class PaymentService {
                 .build();
         transaction = paymentTransactionRepository.save(transaction);
         try {
+            String returnUrl = frontendUrl + "/payment/cashfree/success?order_id=" + orderId;
             CashfreeGateway.OrderResult order = cashfreeGateway.createOrder(
                     orderId, amountInRupees, String.valueOf(user.getId()),
-                    user.getEmail(), user.getPhone(), notifyUrl);
+                    user.getEmail(), user.getPhone(), notifyUrl, returnUrl);
             transaction.setCashfreeSessionId(order.paymentSessionId());
             return paymentTransactionRepository.save(transaction);
         } catch (BusinessException e) {
@@ -308,6 +312,8 @@ public class PaymentService {
                 .success(success)
                 .paymentStatus(status)
                 .membershipActivated(membershipActivated)
+                .amount(transaction.getAmount())
+                .currency(transaction.getCurrency())
                 .build();
     }
 

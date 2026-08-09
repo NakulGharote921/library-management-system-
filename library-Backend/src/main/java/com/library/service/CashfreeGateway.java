@@ -67,7 +67,7 @@ public class CashfreeGateway {
     }
 
     public OrderResult createOrder(String orderId, BigDecimal amountInRupees, String customerId,
-                                   String customerEmail, String customerPhone, String notifyUrl) {
+                                   String customerEmail, String customerPhone, String notifyUrl, String returnUrl) {
         if (appId == null || appId.isBlank() || secretKey == null || secretKey.isBlank()) {
             throw new BusinessException("Cashfree is not configured (CASHFREE_APP_ID / CASHFREE_SECRET_KEY missing)");
         }
@@ -85,9 +85,14 @@ public class CashfreeGateway {
         customer.put("customer_phone", (customerPhone == null || customerPhone.isBlank()) ? "9999999999" : customerPhone);
         body.put("customer_details", customer);
 
+        Map<String, Object> meta = new LinkedHashMap<>();
         if (notifyUrl != null && !notifyUrl.isBlank()) {
-            Map<String, Object> meta = new LinkedHashMap<>();
             meta.put("notify_url", notifyUrl);
+        }
+        if (returnUrl != null && !returnUrl.isBlank()) {
+            meta.put("return_url", returnUrl);
+        }
+        if (!meta.isEmpty()) {
             body.put("order_meta", meta);
         }
 
