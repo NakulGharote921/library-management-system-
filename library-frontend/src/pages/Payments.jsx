@@ -142,10 +142,8 @@ export default function Payments() {
         return
       }
       console.debug('Razorpay order created for fine', fineId, { orderId: order.orderId, amount: order.amount, currency: order.currency })
-      const amountInPaise = Number(order.amount)
       const options = {
-        key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNLiCQpt3YZGUr',
-        amount: amountInPaise,
+        key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
         currency: order.currency || 'INR',
         name: 'KodNest Library',
         description: `Fine #${fineId}`,
