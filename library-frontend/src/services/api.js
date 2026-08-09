@@ -180,8 +180,8 @@ export const fineService = {
 export const paymentService = {
   createOrder: (fineId, paymentType = 'FINE') => api.post('/payments/create-order', { fineId, paymentType }).then((r) => r.data),
   createSubscriptionOrder: (subscriptionId) => api.post('/payments/create-subscription-order', { subscriptionId }).then((r) => r.data),
-  verify: (orderId, paymentId) =>
-    api.post('/payments/verify', { orderId, paymentId }).then((r) => r.data),
+  verify: (razorpayOrderId, razorpayPaymentId, razorpaySignature) =>
+    api.post('/payments/verify', { razorpay_order_id: razorpayOrderId, razorpay_payment_id: razorpayPaymentId, razorpay_signature: razorpaySignature }).then((r) => r.data),
   getMy: () => api.get('/payments/my').then((r) => r.data),
   getByOrderId: (orderId) => api.get(`/payments/order/${orderId}`).then((r) => r.data),
   getById: (id) => api.get(`/payments/${id}`).then((r) => r.data),
@@ -206,8 +206,8 @@ export const homeStatsService = {
 
 export const userSubscriptionService = {
   purchase: (planId) => api.post(`/subscriptions/purchase/${planId}`).then((r) => r.data),
-  activate: (subscriptionId, orderId, paymentId) =>
-    api.post(`/subscriptions/${subscriptionId}/activate`, { orderId, paymentId }).then((r) => r.data),
+  activate: (subscriptionId, razorpayOrderId, razorpayPaymentId) =>
+    api.post(`/subscriptions/${subscriptionId}/activate`, { razorpayOrderId, razorpayPaymentId }).then((r) => r.data),
   cancel: (subscriptionId) => api.post(`/subscriptions/${subscriptionId}/cancel`),
   getMy: () => api.get('/subscriptions/my').then((r) => r.data),
   getActive: () => api.get('/subscriptions/active').then((r) => r.data),

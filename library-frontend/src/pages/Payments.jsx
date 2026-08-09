@@ -55,7 +55,7 @@ export default function Payments() {
   const [typeFilter, setTypeFilter] = useState('')
   const [receiptTxn, setReceiptTxn] = useState(null)
   const payingRef = useRef(false)
-  const settledRef = useRef(false)
+  const rzpSettledRef = useRef(false)
   const lastErrorToastRef = useRef({ msg: '', at: 0 })
 
   const showErrorOnce = useCallback((msg) => {
@@ -125,7 +125,7 @@ export default function Payments() {
   const handlePay = async (fineId) => {
     if (payingRef.current) return
     payingRef.current = true
-    settledRef.current = false
+    rzpSettledRef.current = false
     setPayingId(fineId)
     const finish = () => {
       payingRef.current = false
@@ -141,74 +141,68 @@ export default function Payments() {
         finish()
         return
       }
-      console.debug('Cashfree order created for fine', fineId, { orderId: order.orderId, amount: order.amount, currency: order.currency })
-
-      if (!order.amount || Number(order.amount) <= 0) {
-        showErrorOnce('Invalid fine amount. Please contact support.')
-        finish()
-        return
+      console.debug('Razorpay order created for fine', fineId, { orderId: order.orderId, amount: order.amount, currency: order.currency })
+      const amountInPaise = Number(order.amount)
+      const options = {
+        key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNLiCQpt3YZGUr',
+        amount: amountInPaise,
+        currency: order.currency || 'INR',
+        name: 'KodNest Library',
+        description: `Fine #${fineId}`,
+        order_id: order.orderId,
+        handler: async (response) => {
+          if (rzpSettledRef.current) return
+          rzpSettledRef.current = true
+          try {
+            const updated = await paymentService.verify(
+              response.razorpay_order_id,
+              response.razorpay_payment_id,
+              response.razorpay_signature,
+            )
+            setTransactions((prev) =>
+              prev.map((t) =>
+                (t.fineId === fineId || t.fine?.id === fineId)
+                  ? { ...t, status: 'SUCCESS', razorpayPaymentId: updated.razorpayPaymentId, razorpayOrderId: updated.razorpayOrderId, completedAt: updated.completedAt }
+                  : t
+              )
+            )
+            toast.success('Payment successful')
+          } catch (err) {
+            console.debug('Payment verification failed for fine', fineId, err)
+            showErrorOnce('Payment verification failed. Please contact support.')
+          } finally {
+            finish()
+            load(true)
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            if (rzpSettledRef.current) return
+            rzpSettledRef.current = true
+            finish()
+          },
+        },
+        prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' },
+        theme: { color: '#2563EB' },
       }
-
-      if (!order.paymentSessionId) {
-        console.warn('Cashfree order missing paymentSessionId', order)
-        showErrorOnce('Unable to start payment. Please try again.')
-        finish()
-        return
-      }
-
-      let cashfree
+      let rzp
       try {
-        cashfree = window.Cashfree({ mode: import.meta.env.VITE_CASHFREE_MODE || 'sandbox' })
+        rzp = new window.Razorpay(options)
       } catch (err) {
-        console.debug('Cashfree SDK could not be initialized', err)
+        console.debug('Razorpay checkout could not be started', err)
         showErrorOnce('Payment could not be started. Please try again.')
         finish()
         return
       }
-
-      const onSuccess = async (data) => {
-        if (settledRef.current) return
-        settledRef.current = true
-        try {
-          const cfOrderId = data?.order?.orderId || order.orderId
-          const cfPaymentId = data?.payment?.cfPaymentId
-          const updated = await paymentService.verify(cfOrderId, cfPaymentId)
-          setTransactions((prev) =>
-            prev.map((t) =>
-              (t.fineId === fineId || t.fine?.id === fineId)
-                ? { ...t, status: 'SUCCESS', paymentId: updated.paymentId, orderId: updated.orderId, completedAt: updated.completedAt }
-                : t
-            )
-          )
-          toast.success('Payment successful')
-        } catch (err) {
-          console.debug('Payment verification failed for fine', fineId, err)
-          showErrorOnce('Payment verification failed. Please contact support.')
-        } finally {
-          finish()
-          load(true)
-        }
-      }
-
-      cashfree.checkout({
-        paymentSessionId: order.paymentSessionId,
-        onSuccess,
-        onFailure: (data) => {
-          if (settledRef.current) return
-          settledRef.current = true
-          const failedOrderId = data?.order?.orderId || order.orderId
-          paymentService.markFailed(failedOrderId).catch(() => {})
-          console.debug('Cashfree payment failed for fine', fineId, data)
-          showErrorOnce('Payment failed. Please try again.')
-          finish()
-          load(true)
-        },
-        onClose: () => {
-          if (settledRef.current) return
-          settledRef.current = true
-          finish()
-        },
+      rzp.on('payment.failed', (response) => {
+        if (rzpSettledRef.current) return
+        rzpSettledRef.current = true
+        const failedOrderId = response?.error?.metadata?.order_id || order.orderId
+        paymentService.markFailed(failedOrderId).catch(() => {})
+        showErrorOnce(`Payment failed: ${response?.error?.description || 'Payment was not completed'}`)
+        finish()
       })
+      rzp.open()
     } catch {
       showErrorOnce('Payment could not be started. Please try again.')
       finish()

@@ -6,8 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,7 +14,7 @@ import java.math.BigDecimal;
 public class OrderResponseDto {
 
     private String orderId;
-    private BigDecimal amount;
+    private Integer amount;
     private String currency;
-    private String paymentSessionId;
+    private String keyId;
 }

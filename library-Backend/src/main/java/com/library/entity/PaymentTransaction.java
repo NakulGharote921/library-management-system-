@@ -24,7 +24,6 @@ public class PaymentTransaction {
     public static final String STATUS_CANCELLED = "CANCELLED";
     public static final String TYPE_FINE = "FINE";
     public static final String TYPE_SUBSCRIPTION = "SUBSCRIPTION";
-    public static final String GATEWAY_CASHFREE = "CASHFREE";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,15 +47,11 @@ public class PaymentTransaction {
 
     @NotNull
     @Column(nullable = false, unique = true)
-    private String orderId;
+    private String razorpayOrderId;
 
-    private String paymentId;
+    private String razorpayPaymentId;
 
-    private String paymentSessionId;
-
-    @Column(length = 20)
-    @Builder.Default
-    private String paymentGateway = GATEWAY_CASHFREE;
+    private String razorpaySignature;
 
     @NotNull
     @Column(nullable = false, precision = 10, scale = 2)
@@ -82,6 +77,9 @@ public class PaymentTransaction {
     private LocalDateTime createdAt;
 
     private LocalDateTime completedAt;
+
+    @Transient
+    private String keyId;
 
     @PrePersist
     protected void onCreate() {

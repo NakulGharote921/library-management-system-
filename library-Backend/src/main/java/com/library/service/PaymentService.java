@@ -1,7 +1,5 @@
 package com.library.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.library.dto.OrderResponseDto;
 import com.library.entity.Fine;
 import com.library.entity.PaymentTransaction;
@@ -11,19 +9,25 @@ import com.library.entity.UserSubscription;
 import com.library.exception.BusinessException;
 import com.library.exception.ResourceNotFoundException;
 import com.library.repository.PaymentTransactionRepository;
+import com.razorpay.Order;
+import com.razorpay.Utils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -40,11 +44,10 @@ public class PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final FineService fineService;
     private final SubscriptionService subscriptionService;
-    private final CashfreeGateway cashfreeGateway;
-    private final ObjectMapper objectMapper;
+    private final RazorpayGateway razorpayGateway;
 
-    @Value("${app.payments.notify-url:}")
-    private String notifyUrl;
+    @Value("${razorpay.webhook-secret:}")
+    private String razorpayWebhookSecret;
 
     @Transactional
     public OrderResponseDto createOrder(User user, Long fineId, String paymentType) {
@@ -59,32 +62,49 @@ public class PaymentService {
         if (fine.getAmount() == null || fine.getAmount().signum() <= 0) {
             throw new BusinessException("Invalid fine amount: cannot create payment order");
         }
-        BigDecimal amountRupees = fine.getAmount();
-        log.info("Fine payment order started: fineId={}, amountRupees={}, currency=INR", fineId, amountRupees);
+        int amountPaise = razorpayGateway.toPaise(fine.getAmount());
+        log.info("Fine payment order started: fineId={}, amountPaise={}, currency=INR", fineId, amountPaise);
 
         Optional<PaymentTransaction> active = reusablePending(
                 paymentTransactionRepository.findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES),
-                amountRupees);
+                amountPaise);
         if (active.isPresent()) {
             PaymentTransaction existing = active.get();
             if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
                 throw new BusinessException(HttpStatus.CONFLICT, "Fine is already paid.");
             }
-            log.info("Reusing existing pending payment order {} for fine id={}", existing.getOrderId(), fineId);
-            return toOrderDto(existing);
+            log.info("Reusing existing pending payment order {} for fine id={}", existing.getRazorpayOrderId(), fineId);
+            return toOrderDto(existing, amountPaise);
         }
 
         try {
-            PaymentTransaction transaction = persistNewOrder(user, fine, null, amountRupees, paymentType);
-            return toOrderDto(transaction);
+            Order razorpayOrder = razorpayGateway.createOrder(fine.getAmount(), "INR",
+                    paymentType.toLowerCase() + "_" + fineId);
+            log.info("Razorpay fine order created: orderId={}, amountPaise={}, currency=INR", razorpayOrder.get("id"), amountPaise);
+
+            PaymentTransaction transaction = PaymentTransaction.builder()
+                    .user(user)
+                    .fine(fine)
+                    .razorpayOrderId(razorpayOrder.get("id"))
+                    .amount(fine.getAmount())
+                    .currency("INR")
+                    .paymentType(paymentType)
+                    .status(PaymentTransaction.STATUS_PENDING)
+                    .build();
+            return toOrderDto(paymentTransactionRepository.save(transaction), amountPaise);
         } catch (DataIntegrityViolationException e) {
             Optional<PaymentTransaction> concurrent = paymentTransactionRepository
                     .findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES);
             if (concurrent.isPresent()) {
                 log.info("Concurrent order creation detected, reusing existing payment for fine id={}", fineId);
-                return toOrderDto(concurrent.get());
+                return toOrderDto(concurrent.get(), amountPaise);
             }
             throw e;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Razorpay fine order creation failed: fineId={}, error={}", fineId, e.getMessage());
+            throw new BusinessException("Failed to create Razorpay order: " + e.getMessage());
         }
     }
 
@@ -105,11 +125,11 @@ public class PaymentService {
         if (plan.getPrice() == null || plan.getValidityDays() <= 0 || plan.getName() == null || plan.getName().isBlank()) {
             throw new BusinessException("Subscription plan is incomplete: price, validity and name are required");
         }
-        BigDecimal priceInRupees = plan.getPrice();
-        log.info("Subscription order started: planId={}, planName={}, priceInRupees={}, currency=INR",
-                plan.getId(), plan.getName(), priceInRupees);
+        int amountPaise = razorpayGateway.toPaise(plan.getPrice());
+        log.info("Subscription order started: planId={}, planName={}, price={}, amountPaise={}, currency=INR",
+                plan.getId(), plan.getName(), plan.getPrice(), amountPaise);
 
-        if (priceInRupees.signum() <= 0) {
+        if (amountPaise <= 0) {
             log.info("Free plan detected, activating subscription directly: subscriptionId={}, planId={}",
                     subscriptionId, plan.getId());
             Optional<PaymentTransaction> existingPaid = paymentTransactionRepository
@@ -121,83 +141,70 @@ public class PaymentService {
             PaymentTransaction transaction = PaymentTransaction.builder()
                     .user(user)
                     .subscription(sub)
-                    .orderId("FREE_" + subscriptionId)
+                    .razorpayOrderId("FREE_" + subscriptionId)
                     .amount(BigDecimal.ZERO)
                     .currency("INR")
                     .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
                     .status(PaymentTransaction.STATUS_SUCCESS)
                     .completedAt(LocalDateTime.now())
                     .build();
-            return toOrderDto(paymentTransactionRepository.save(transaction));
+            return toOrderDto(paymentTransactionRepository.save(transaction), 0);
         }
 
         Optional<PaymentTransaction> active = reusablePending(
                 paymentTransactionRepository.findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES),
-                priceInRupees);
+                amountPaise);
         if (active.isPresent()) {
             PaymentTransaction existing = active.get();
             if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
                 throw new BusinessException(HttpStatus.CONFLICT, "Subscription is already paid.");
             }
             log.info("Reusing existing pending subscription payment order {} for subscription id={}",
-                    existing.getOrderId(), subscriptionId);
-            return toOrderDto(existing);
+                    existing.getRazorpayOrderId(), subscriptionId);
+            return toOrderDto(existing, amountPaise);
         }
 
         try {
-            PaymentTransaction transaction = persistNewOrder(user, null, sub, priceInRupees,
-                    PaymentTransaction.TYPE_SUBSCRIPTION);
-            return toOrderDto(transaction);
+            Order razorpayOrder = razorpayGateway.createOrder(plan.getPrice(), "INR", "sub_" + subscriptionId);
+            log.info("Razorpay subscription order created: orderId={}, amountPaise={}, currency=INR",
+                    razorpayOrder.get("id"), amountPaise);
+
+            PaymentTransaction transaction = PaymentTransaction.builder()
+                    .user(user)
+                    .subscription(sub)
+                    .razorpayOrderId(razorpayOrder.get("id"))
+                    .amount(plan.getPrice())
+                    .currency("INR")
+                    .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
+                    .status(PaymentTransaction.STATUS_PENDING)
+                    .build();
+            return toOrderDto(paymentTransactionRepository.save(transaction), amountPaise);
         } catch (DataIntegrityViolationException e) {
             Optional<PaymentTransaction> concurrent = paymentTransactionRepository
                     .findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES);
             if (concurrent.isPresent()) {
                 log.info("Concurrent subscription order creation detected, reusing existing payment for subscription id={}", subscriptionId);
-                return toOrderDto(concurrent.get());
+                return toOrderDto(concurrent.get(), amountPaise);
             }
             throw e;
-        }
-    }
-
-    private PaymentTransaction persistNewOrder(User user, Fine fine, UserSubscription sub,
-                                               BigDecimal amountInRupees, String paymentType) {
-        String orderId = generateOrderId();
-        PaymentTransaction transaction = PaymentTransaction.builder()
-                .user(user)
-                .fine(fine)
-                .subscription(sub)
-                .orderId(orderId)
-                .amount(amountInRupees)
-                .currency("INR")
-                .paymentType(paymentType)
-                .paymentGateway(PaymentTransaction.GATEWAY_CASHFREE)
-                .status(PaymentTransaction.STATUS_PENDING)
-                .build();
-        transaction = paymentTransactionRepository.save(transaction);
-        try {
-            CashfreeGateway.OrderResult order = cashfreeGateway.createOrder(
-                    orderId, amountInRupees, String.valueOf(user.getId()),
-                    user.getEmail(), user.getPhone(), notifyUrl);
-            transaction.setPaymentSessionId(order.paymentSessionId());
-            return paymentTransactionRepository.save(transaction);
         } catch (BusinessException e) {
-            transaction.setStatus(PaymentTransaction.STATUS_FAILED);
-            transaction.setCompletedAt(LocalDateTime.now());
-            paymentTransactionRepository.save(transaction);
             throw e;
+        } catch (Exception e) {
+            log.error("Razorpay subscription order creation failed: subscriptionId={}, error={}", subscriptionId, e.getMessage());
+            throw new BusinessException("Failed to create Razorpay order: " + e.getMessage());
         }
     }
 
-    private OrderResponseDto toOrderDto(PaymentTransaction transaction) {
+    private OrderResponseDto toOrderDto(PaymentTransaction transaction, int amountPaise) {
         return OrderResponseDto.builder()
-                .orderId(transaction.getOrderId())
-                .amount(transaction.getAmount())
+                .orderId(transaction.getRazorpayOrderId())
+                .amount(amountPaise)
                 .currency(transaction.getCurrency() == null ? "INR" : transaction.getCurrency())
-                .paymentSessionId(transaction.getPaymentSessionId())
+                .keyId(razorpayGateway.getKeyId())
                 .build();
     }
 
-    private Optional<PaymentTransaction> reusablePending(Optional<PaymentTransaction> active, BigDecimal expectedRupees) {
+    private Optional<PaymentTransaction> reusablePending(Optional<PaymentTransaction> active, int expectedPaise) {
         if (active.isEmpty()) {
             return active;
         }
@@ -209,25 +216,18 @@ public class PaymentService {
                 || existing.getCreatedAt().isBefore(LocalDateTime.now().minusMinutes(15));
         if (stale) {
             log.info("Stale pending payment {} (created {}) - marking FAILED, creating fresh order",
-                    existing.getOrderId(), existing.getCreatedAt());
+                    existing.getRazorpayOrderId(), existing.getCreatedAt());
             existing.setStatus(PaymentTransaction.STATUS_FAILED);
             existing.setCompletedAt(LocalDateTime.now());
             paymentTransactionRepository.save(existing);
             return Optional.empty();
         }
         try {
-            CashfreeGateway.OrderResult order = cashfreeGateway.getOrder(existing.getOrderId());
-            if (!"ACTIVE".equals(order.orderStatus())) {
-                log.warn("Pending order {} has status {} - marking FAILED, creating fresh order",
-                        existing.getOrderId(), order.orderStatus());
-                existing.setStatus(PaymentTransaction.STATUS_FAILED);
-                existing.setCompletedAt(LocalDateTime.now());
-                paymentTransactionRepository.save(existing);
-                return Optional.empty();
-            }
-            if (order.amount() != null && expectedRupees != null && order.amount().compareTo(expectedRupees) != 0) {
-                log.warn("Pending order {} has amount {} rupees, expected {} rupees - marking FAILED, creating fresh order",
-                        existing.getOrderId(), order.amount(), expectedRupees);
+            Order razorpayOrder = razorpayGateway.fetchOrder(existing.getRazorpayOrderId());
+            int orderPaise = ((Number) razorpayOrder.get("amount")).intValue();
+            if (orderPaise != expectedPaise) {
+                log.warn("Pending order {} has amount {} paise, expected {} paise - marking FAILED, creating fresh order",
+                        existing.getRazorpayOrderId(), orderPaise, expectedPaise);
                 existing.setStatus(PaymentTransaction.STATUS_FAILED);
                 existing.setCompletedAt(LocalDateTime.now());
                 paymentTransactionRepository.save(existing);
@@ -235,19 +235,20 @@ public class PaymentService {
             }
             return active;
         } catch (Exception e) {
-            log.warn("Could not fetch Cashfree order {} - reusing pending transaction: {}",
-                    existing.getOrderId(), e.getMessage());
+            log.warn("Could not fetch razorpay order {} - reusing pending transaction: {}",
+                    existing.getRazorpayOrderId(), e.getMessage());
             return active;
         }
     }
 
     @Transactional
-    public PaymentTransaction verifyPayment(String orderId, String paymentId) {
-        PaymentTransaction transaction = paymentTransactionRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", orderId));
+    public PaymentTransaction verifyPayment(String razorpayOrderId, String razorpayPaymentId,
+                                             String razorpaySignature) {
+        PaymentTransaction transaction = paymentTransactionRepository.findByRazorpayOrderId(razorpayOrderId)
+                .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", razorpayOrderId));
 
         if (PaymentTransaction.STATUS_SUCCESS.equals(transaction.getStatus())) {
-            log.info("Payment already completed for order: {} - returning existing transaction", orderId);
+            log.info("Payment already completed for order: {} - returning existing transaction", razorpayOrderId);
             return transaction;
         }
 
@@ -257,31 +258,21 @@ public class PaymentService {
         }
 
         try {
-            List<CashfreeGateway.PaymentResult> payments = cashfreeGateway.getPayments(orderId);
-            CashfreeGateway.PaymentResult success = payments.stream()
-                    .filter(p -> "SUCCESS".equals(p.paymentStatus()))
-                    .findFirst()
-                    .orElse(null);
-            if (paymentId != null && !paymentId.isBlank()) {
-                success = payments.stream()
-                        .filter(p -> paymentId.equals(p.cfPaymentId()) && "SUCCESS".equals(p.paymentStatus()))
-                        .findFirst()
-                        .orElse(null);
-                if (success == null) {
-                    throw new BusinessException("Payment not verified with Cashfree");
-                }
-            }
-            if (success == null) {
-                throw new BusinessException("Payment is not successful yet");
-            }
-            if (success.paymentAmount() != null && transaction.getAmount() != null
-                    && success.paymentAmount().compareTo(transaction.getAmount()) != 0) {
-                log.warn("Payment amount mismatch for order {}: Cashfree={}, expected={}",
-                        orderId, success.paymentAmount(), transaction.getAmount());
-                throw new BusinessException("Payment amount mismatch");
+            JSONObject options = new JSONObject();
+            options.put("razorpay_order_id", razorpayOrderId);
+            options.put("razorpay_payment_id", razorpayPaymentId);
+            options.put("razorpay_signature", razorpaySignature);
+
+            boolean isValid = Utils.verifyPaymentSignature(options, razorpayGateway.getKeySecret());
+            if (!isValid) {
+                transaction.setStatus(PaymentTransaction.STATUS_FAILED);
+                transaction.setCompletedAt(LocalDateTime.now());
+                paymentTransactionRepository.save(transaction);
+                log.warn("Payment signature verification failed for order: {}", razorpayOrderId);
+                throw new BusinessException("Payment signature verification failed");
             }
 
-            completePayment(transaction, success.cfPaymentId());
+            completePayment(transaction, razorpayPaymentId, razorpaySignature);
             return transaction;
         } catch (BusinessException e) {
             throw e;
@@ -289,15 +280,15 @@ public class PaymentService {
             transaction.setStatus(PaymentTransaction.STATUS_FAILED);
             transaction.setCompletedAt(LocalDateTime.now());
             paymentTransactionRepository.save(transaction);
-            log.error("Payment verification failed for order {}: {}", orderId, e.getMessage());
+            log.error("Payment verification failed for order {}: {}", razorpayOrderId, e.getMessage());
             throw new BusinessException("Payment verification failed: " + e.getMessage());
         }
     }
 
     @Transactional
-    public PaymentTransaction markPaymentFailed(User user, String orderId) {
-        PaymentTransaction transaction = paymentTransactionRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", orderId));
+    public PaymentTransaction markPaymentFailed(User user, String razorpayOrderId) {
+        PaymentTransaction transaction = paymentTransactionRepository.findByRazorpayOrderId(razorpayOrderId)
+                .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", razorpayOrderId));
         boolean isAdmin = user.getRole() == User.Role.ADMIN;
         if (!isAdmin && !transaction.getUser().getId().equals(user.getId())) {
             throw new BusinessException("Payment does not belong to this user");
@@ -306,68 +297,79 @@ public class PaymentService {
             transaction.setStatus(PaymentTransaction.STATUS_FAILED);
             transaction.setCompletedAt(LocalDateTime.now());
             paymentTransactionRepository.save(transaction);
-            log.info("Payment marked FAILED (client-side) for order: {}", orderId);
+            log.info("Payment marked FAILED (client-side) for order: {}", razorpayOrderId);
         } else {
-            log.info("markFailed ignored for order {} - current status {}", orderId, transaction.getStatus());
+            log.info("markFailed ignored for order {} - current status {}", razorpayOrderId, transaction.getStatus());
         }
         return transaction;
     }
 
     @Transactional
-    public void handleWebhook(String rawBody, String timestamp, String signature) {
-        if (!cashfreeGateway.verifyWebhookSignature(rawBody, timestamp, signature)) {
-            log.warn("Cashfree webhook signature verification failed");
-            return;
-        }
+    public void handleWebhook(String rawBody, String signature) {
+        String webhookSecret = razorpayWebhookSecret.isEmpty() ? razorpayGateway.getKeySecret() : razorpayWebhookSecret;
 
         try {
-            JsonNode payload = objectMapper.readTree(rawBody);
-            JsonNode data = payload.path("data");
-            String orderId = data.path("order").path("order_id").asText("");
-            String paymentId = data.path("payment").path("cf_payment_id").asText("");
-            String paymentStatus = data.path("payment").path("payment_status").asText("");
-
-            if (orderId.isEmpty()) {
-                log.warn("Cashfree webhook without order_id");
+            if (!verifyWebhookSignature(rawBody, signature, webhookSecret)) {
+                log.warn("Webhook signature verification failed");
                 return;
             }
 
-            Optional<PaymentTransaction> existing = paymentTransactionRepository.findByOrderId(orderId);
+            JSONObject payload = new JSONObject(rawBody);
+            String event = payload.optString("event");
+
+            JSONObject paymentEntity = extractPaymentEntity(payload, event);
+            if (paymentEntity == null) return;
+
+            String razorpayOrderId = paymentEntity.optString("order_id");
+            String razorpayPaymentId = paymentEntity.optString("id");
+            String eventStatus = paymentEntity.optString("status");
+
+            if (razorpayOrderId.isEmpty() || razorpayPaymentId.isEmpty()) return;
+
+            Optional<PaymentTransaction> existing = paymentTransactionRepository
+                    .findByRazorpayOrderId(razorpayOrderId);
             if (existing.isEmpty()) {
-                log.warn("No transaction found for order: {}", orderId);
+                log.warn("No transaction found for order: {}", razorpayOrderId);
                 return;
             }
 
             PaymentTransaction transaction = existing.get();
             if (!PaymentTransaction.STATUS_PENDING.equals(transaction.getStatus())) {
-                log.info("Webhook ignored - payment already processed for order: {}", orderId);
+                log.info("Webhook ignored - payment already processed for order: {}", razorpayOrderId);
                 return;
             }
 
-            if ("SUCCESS".equals(paymentStatus)) {
-                BigDecimal webhookAmount = decimal(data.path("payment"), "payment_amount");
-                if (webhookAmount != null && transaction.getAmount() != null
-                        && webhookAmount.compareTo(transaction.getAmount()) != 0) {
-                    log.warn("Webhook amount mismatch for order {}: Cashfree={}, expected={}",
-                            orderId, webhookAmount, transaction.getAmount());
-                    return;
-                }
-                completePayment(transaction, paymentId);
-                log.info("Webhook processed successfully for order: {}", orderId);
-            } else if ("FAILED".equals(paymentStatus) || "USER_DROPPED".equals(paymentStatus)
-                    || "CANCELLED".equals(paymentStatus) || "VOID".equals(paymentStatus)) {
+            if ("captured".equals(eventStatus)) {
+                completePayment(transaction, razorpayPaymentId, "webhook_" + signature.hashCode());
+                log.info("Webhook processed successfully for order: {}", razorpayOrderId);
+            } else if ("failed".equals(eventStatus)) {
                 transaction.setStatus(PaymentTransaction.STATUS_FAILED);
                 transaction.setCompletedAt(LocalDateTime.now());
                 paymentTransactionRepository.save(transaction);
-                log.info("Webhook recorded failure for order: {}", orderId);
+                log.info("Webhook recorded failure for order: {}", razorpayOrderId);
             }
         } catch (Exception e) {
-            log.error("Cashfree webhook processing error: {}", e.getMessage());
+            log.error("Webhook processing error: {}", e.getMessage());
         }
     }
 
-    private void completePayment(PaymentTransaction transaction, String paymentId) {
-        transaction.setPaymentId(paymentId);
+    private JSONObject extractPaymentEntity(JSONObject payload, String event) {
+        JSONObject paymentPayload = payload.optJSONObject("payload");
+        if (paymentPayload == null) return null;
+
+        if ("payment.captured".equals(event) || "payment.failed".equals(event)) {
+            JSONObject payment = paymentPayload.optJSONObject("payment");
+            return payment != null ? payment.optJSONObject("entity") : null;
+        } else if ("order.paid".equals(event)) {
+            JSONObject order = paymentPayload.optJSONObject("order");
+            return order != null ? order.optJSONObject("entity") : null;
+        }
+        return null;
+    }
+
+    private void completePayment(PaymentTransaction transaction, String razorpayPaymentId, String razorpaySignature) {
+        transaction.setRazorpayPaymentId(razorpayPaymentId);
+        transaction.setRazorpaySignature(razorpaySignature);
         transaction.setStatus(PaymentTransaction.STATUS_SUCCESS);
         transaction.setCompletedAt(LocalDateTime.now());
         paymentTransactionRepository.save(transaction);
@@ -378,12 +380,12 @@ public class PaymentService {
         if (transaction.getSubscription() != null) {
             subscriptionService.activateSubscription(
                     transaction.getSubscription().getId(),
-                    transaction.getOrderId(),
-                    paymentId);
+                    transaction.getRazorpayOrderId(),
+                    razorpayPaymentId);
         }
 
         log.info("Payment completed for order: {}, payment: {}, type: {}",
-                transaction.getOrderId(), paymentId, transaction.getPaymentType());
+                transaction.getRazorpayOrderId(), razorpayPaymentId, transaction.getPaymentType());
     }
 
     public List<PaymentTransaction> getUserTransactions(User user) {
@@ -391,8 +393,46 @@ public class PaymentService {
     }
 
     public PaymentTransaction getByOrderId(String orderId) {
-        return paymentTransactionRepository.findByOrderId(orderId)
+        return paymentTransactionRepository.findByRazorpayOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", orderId));
+    }
+
+    private boolean verifyWebhookSignature(String body, String signatureHeader, String secret) {
+        try {
+            if (signatureHeader == null || signatureHeader.isBlank()) {
+                return false;
+            }
+            String expectedSignature = null;
+            if (signatureHeader.contains("|")) {
+                for (String part : signatureHeader.split("\\|")) {
+                    if (part.startsWith("v1=")) {
+                        expectedSignature = part.substring(3);
+                        break;
+                    }
+                }
+            } else {
+                expectedSignature = signatureHeader;
+            }
+            if (expectedSignature == null || expectedSignature.isBlank()) {
+                return false;
+            }
+
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec keySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(keySpec);
+            byte[] hmacBytes = mac.doFinal(body.getBytes(StandardCharsets.UTF_8));
+
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hmacBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            String computedSignature = sb.toString();
+
+            return MessageDigest.isEqual(expectedSignature.getBytes(StandardCharsets.UTF_8), computedSignature.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            log.error("Webhook signature verification error: {}", e.getMessage());
+            return false;
+        }
     }
 
     public PaymentTransaction getById(Long id) {
@@ -426,21 +466,5 @@ public class PaymentService {
         return result.stream()
                 .filter(t -> COMPLETED_STATUSES.contains(t.getStatus()))
                 .collect(Collectors.toList());
-    }
-
-    private String generateOrderId() {
-        return "LIB" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
-    }
-
-    private BigDecimal decimal(JsonNode node, String field) {
-        JsonNode value = node == null ? null : node.get(field);
-        if (value == null || value.isNull()) {
-            return null;
-        }
-        try {
-            return new BigDecimal(value.asText());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 }

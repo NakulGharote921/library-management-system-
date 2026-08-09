@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { Award, BookOpen, Check, CircleCheck, Crown, RefreshCw, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
+import { selectUser } from '../store/authSlice.js'
 import { getApiErrorMessage, paymentService, subscriptionService, userSubscriptionService } from '../services/api.js'
 import { parsePlanFeatures } from '../utils/planFeatures.js'
 
@@ -18,12 +20,13 @@ function PlanCheckItem({ text, included }) {
 
 export default function MembershipPlans() {
   const navigate = useNavigate()
+  const user = useSelector(selectUser)
   const [plans, setPlans] = useState([])
   const [activeSub, setActiveSub] = useState(null)
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState(null)
   const payingRef = useRef(false)
-  const settledRef = useRef(false)
+  const rzpSettledRef = useRef(false)
   const lastErrorToastRef = useRef({ msg: '', at: 0 })
 
   const showErrorOnce = useCallback((msg) => {
@@ -54,7 +57,7 @@ export default function MembershipPlans() {
   const handlePurchase = async (planId) => {
     if (payingRef.current) return
     payingRef.current = true
-    settledRef.current = false
+    rzpSettledRef.current = false
     setPurchasing(planId)
     const finish = () => {
       payingRef.current = false
@@ -81,70 +84,77 @@ export default function MembershipPlans() {
         load()
         return
       }
-      console.debug('Cashfree order created for subscription', sub.id, { orderId: order.orderId, amount: order.amount, currency: order.currency })
+      console.debug('Razorpay order created for subscription', sub.id, { orderId: order.orderId, amount: order.amount, currency: order.currency })
 
-      if (!order.amount || Number(order.amount) <= 0) {
+      if (!order.amount || order.amount <= 0) {
         toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
         finish()
         load()
         return
       }
 
-      if (!order.paymentSessionId) {
-        console.warn('Cashfree order missing paymentSessionId', order)
-        showErrorOnce('Unable to start payment. Please try again.')
-        finish()
-        load()
-        return
+      const amountInPaise = Number(order.amount)
+      const priceInRupees = amountInPaise > 0 ? amountInPaise / 100 : Number(sub.plan?.price || 0)
+      const planPriceInRupees = Number(sub.plan?.price)
+      if (planPriceInRupees > 0 && amountInPaise !== Math.round(planPriceInRupees * 100)) {
+        console.warn(
+          `PRICE MISMATCH: plan=${planPriceInRupees} rupees, expected order=${Math.round(planPriceInRupees * 100)} paise, got order=${amountInPaise} paise — stale backend order conversion detected`
+        )
       }
-
-      const priceInRupees = Number(order.amount)
-      let cashfree
+      const options = {
+        key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNLiCQpt3YZGUr',
+        amount: amountInPaise,
+        currency: order.currency || 'INR',
+        name: 'KodNest Library',
+        description: `${sub.plan?.name || 'Membership'} Membership — ${priceInRupees.toLocaleString('en-IN')}`,
+        order_id: order.orderId,
+        handler: async (response) => {
+          if (rzpSettledRef.current) return
+          rzpSettledRef.current = true
+          try {
+            await paymentService.verify(
+              response.razorpay_order_id,
+              response.razorpay_payment_id,
+              response.razorpay_signature,
+            )
+            toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
+          } catch (err) {
+            console.debug('Payment verification failed for subscription', sub.id, err)
+            showErrorOnce('Payment verification failed. Please contact support.')
+          } finally {
+            finish()
+            load()
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            if (rzpSettledRef.current) return
+            rzpSettledRef.current = true
+            finish()
+            load()
+          },
+        },
+        prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' },
+        theme: { color: '#2563EB' },
+      }
+      let rzp
       try {
-        cashfree = window.Cashfree({ mode: import.meta.env.VITE_CASHFREE_MODE || 'sandbox' })
+        rzp = new window.Razorpay(options)
       } catch (err) {
-        console.debug('Cashfree SDK could not be initialized', err)
+        console.debug('Razorpay checkout could not be started', err)
         showErrorOnce('Payment could not be started. Please try again.')
         finish()
         load()
         return
       }
-
-      const onSuccess = async (data) => {
-        if (settledRef.current) return
-        settledRef.current = true
-        try {
-          const cfOrderId = data?.order?.orderId || order.orderId
-          const cfPaymentId = data?.payment?.cfPaymentId
-          await paymentService.verify(cfOrderId, cfPaymentId)
-          toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
-        } catch (err) {
-          console.debug('Payment verification failed for subscription', sub.id, err)
-          showErrorOnce('Payment verification failed. Please contact support.')
-        } finally {
-          finish()
-          load()
-        }
-      }
-
-      cashfree.checkout({
-        paymentSessionId: order.paymentSessionId,
-        onSuccess,
-        onFailure: (data) => {
-          if (settledRef.current) return
-          settledRef.current = true
-          console.debug('Cashfree payment failed for subscription', sub.id, data)
-          showErrorOnce('Payment failed. Please try again.')
-          finish()
-          load()
-        },
-        onClose: () => {
-          if (settledRef.current) return
-          settledRef.current = true
-          finish()
-          load()
-        },
+      rzp.on('payment.failed', (response) => {
+        if (rzpSettledRef.current) return
+        rzpSettledRef.current = true
+        showErrorOnce(`Payment failed: ${response.error.description}`)
+        finish()
+        load()
       })
+      rzp.open()
     } catch (e) {
       showErrorOnce(getApiErrorMessage(e))
       finish()
