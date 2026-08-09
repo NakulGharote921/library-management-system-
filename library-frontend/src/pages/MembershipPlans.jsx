@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { getApiErrorMessage, paymentService, subscriptionService, userSubscriptionService } from '../services/api.js'
-import { parsePlanFeatures } from '../utils/planFeatures.js'
+import { buildPlanFeatureList } from '../utils/planFeatures.js'
 
 function PlanCheckItem({ text, included }) {
   return (
@@ -269,9 +269,9 @@ export default function MembershipPlans() {
             const isFree = plan.price === 0
             const isPopular = Boolean(plan.featured) && !isCurrentPlan
             const status = plan.status || 'ACTIVE'
-            const featureList = parsePlanFeatures(plan.features)
-            const visibleFeatures = featureList.slice(0, 4)
-            const hasMoreFeatures = featureList.length > 4
+            const featureList = buildPlanFeatureList(plan)
+            const visibleFeatures = featureList.slice(0, 6)
+            const hasMoreFeatures = featureList.length > 6
 
             return (
               <div key={plan.id} className="relative h-full">
@@ -318,14 +318,8 @@ export default function MembershipPlans() {
                   </div>
 
                   <ul role="list" className="my-6 space-y-4 text-sm text-gray-600 dark:text-gray-300">
-                    <PlanCheckItem text={`${plan.maxBooks} books at a time`} included={plan.maxBooks > 0} />
-                    <PlanCheckItem text={`${plan.maxLoanDays}-day loan period`} included={plan.maxLoanDays > 0} />
-                    <PlanCheckItem text={`${plan.maxRenewals} renewals`} included={plan.maxRenewals > 0} />
-                    <PlanCheckItem text={`${plan.maxReservations} reservations`} included={plan.maxReservations > 0} />
-                    <PlanCheckItem text="Priority reservations" included={Boolean(plan.priorityReservation)} />
-                    <PlanCheckItem text="Fine exemption" included={Boolean(plan.fineExempt)} />
                     {visibleFeatures.map((f) => (
-                      <PlanCheckItem key={f} text={f} included />
+                      <PlanCheckItem key={f.text} text={f.text} included={f.included ?? true} />
                     ))}
                   </ul>
 
@@ -378,9 +372,9 @@ export default function MembershipPlans() {
                     </div>
                     <ul className="mt-4 flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
                       {featureList.map((f) => (
-                        <li key={f} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                        <li key={f.text} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                          <span>{f}</span>
+                          <span>{f.text}</span>
                         </li>
                       ))}
                     </ul>

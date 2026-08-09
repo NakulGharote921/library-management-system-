@@ -128,6 +128,7 @@ public class SubscriptionService {
 
     @Transactional
     public UserSubscription activateAdminSubscription(User user, UserSubscription sub, SubscriptionPlan plan) {
+        replaceActiveMemberships(user, sub);
         sub.setStatus(UserSubscription.STATUS_ACTIVE);
         sub.setActivatedAt(LocalDateTime.now());
         sub = userSubscriptionRepository.save(sub);
@@ -151,11 +152,28 @@ public class SubscriptionService {
     public UserSubscription activateSubscription(Long subscriptionId, String orderId, String paymentId) {
         UserSubscription sub = userSubscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new ResourceNotFoundException("UserSubscription", subscriptionId));
+        replaceActiveMemberships(sub.getUser(), sub);
         sub.setStatus(UserSubscription.STATUS_ACTIVE);
         sub.setCashfreeOrderId(orderId);
         sub.setCashfreePaymentId(paymentId);
         sub.setActivatedAt(LocalDateTime.now());
         return userSubscriptionRepository.save(sub);
+    }
+
+    private void replaceActiveMemberships(User user, UserSubscription activating) {
+        List<UserSubscription> active = userSubscriptionRepository.findByUserAndStatusInOrderByCreatedAtDesc(
+                user, List.of(UserSubscription.STATUS_ACTIVE, UserSubscription.STATUS_EXPIRING));
+        for (UserSubscription existing : active) {
+            if (activating != null && activating.getId() != null
+                    && activating.getId().equals(existing.getId())) {
+                continue;
+            }
+            existing.setStatus(UserSubscription.STATUS_REPLACED);
+            userSubscriptionRepository.save(existing);
+            log.info("Subscription {} (plan {}) replaced by subscription id={} for user {}",
+                    existing.getId(), existing.getPlan().getName(), activating == null ? null : activating.getId(),
+                    user.getEmail());
+        }
     }
 
     @Transactional

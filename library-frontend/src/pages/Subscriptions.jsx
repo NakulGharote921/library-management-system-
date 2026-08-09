@@ -8,7 +8,7 @@ import Modal from '../components/Modal.jsx'
 import FormInput from '../components/FormInput.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { getApiErrorMessage, subscriptionService, userSubscriptionService } from '../services/api.js'
-import { parsePlanFeatures } from '../utils/planFeatures.js'
+import { buildPlanFeatureList } from '../utils/planFeatures.js'
 
 const emptyPlan = {
   name: '', description: '', maxBooks: '', maxLoanDays: '',
@@ -278,7 +278,7 @@ export default function Subscriptions() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visiblePlans.map((plan) => {
             const isPopular = Boolean(plan.featured)
-            const customFeatures = parsePlanFeatures(plan.features)
+            const planFeatures = buildPlanFeatureList(plan)
             return (
               <div key={plan.id} className="aura flex w-full max-w-[360px] justify-self-center">
                 <article className="flex w-full flex-col gap-4 rounded-2xl border border-gray-100 bg-white px-6 py-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-gray-800 dark:bg-gray-900">
@@ -328,14 +328,8 @@ export default function Subscriptions() {
                   </div>
 
                   <ul role="list" className="my-6 space-y-4">
-                    <PlanCheckItem text={`${plan.maxBooks} books at a time`} included={plan.maxBooks > 0} />
-                    <PlanCheckItem text={`${plan.maxLoanDays}-day loan period`} included={plan.maxLoanDays > 0} />
-                    <PlanCheckItem text={`${plan.maxRenewals} renewals`} included={plan.maxRenewals > 0} />
-                    <PlanCheckItem text={`${plan.maxReservations} reservations`} included={plan.maxReservations > 0} />
-                    <PlanCheckItem text="Priority reservations" included={Boolean(plan.priorityReservation)} />
-                    <PlanCheckItem text="Fine exemption" included={Boolean(plan.fineExempt)} />
-                    {customFeatures.map((f) => (
-                      <PlanCheckItem key={f} text={f} included />
+                    {planFeatures.map((f) => (
+                      <PlanCheckItem key={f.text} text={f.text} included={f.included ?? true} />
                     ))}
                   </ul>
 

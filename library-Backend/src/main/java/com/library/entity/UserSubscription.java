@@ -22,6 +22,7 @@ public class UserSubscription {
     public static final String STATUS_EXPIRING = "EXPIRING";
     public static final String STATUS_EXPIRED = "EXPIRED";
     public static final String STATUS_CANCELLED = "CANCELLED";
+    public static final String STATUS_REPLACED = "REPLACED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

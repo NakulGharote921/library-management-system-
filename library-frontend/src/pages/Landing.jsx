@@ -44,7 +44,7 @@ import MorphSlider from '../components/Reactbites/src/component/Reactbites/Morph
 import BorderGlow from '../components/Reactbites/BorderGlow.jsx'
 import { getApiErrorMessage, bookService, subscriptionService } from '../services/api.js'
 import { preferCover, preloadCovers, DEFAULT_COVER } from '../utils/bookCovers.js'
-import { parsePlanFeatures } from '../utils/planFeatures.js'
+import { buildPlanFeatureList } from '../utils/planFeatures.js'
 
 const NAV_LINKS = [
   { label: 'Features', to: '/home/features' },
@@ -530,16 +530,9 @@ function HowItWorks() {
 }
 
 function planFeatureItems(plan) {
-  const raw = parsePlanFeatures(plan.features)
-  if (raw.length) return raw.map((text) => ({ text, included: true }))
-
-  const items = [
-    { text: `Up to ${plan.maxBooks} books at a time`, included: plan.maxBooks > 0 },
-    { text: `${plan.maxLoanDays}-day loan period`, included: plan.maxLoanDays > 0 },
-    { text: `Up to ${plan.maxReservations} reservations`, included: plan.maxReservations > 0 },
-    { text: `Up to ${plan.maxRenewals} renewals`, included: plan.maxRenewals > 0 },
-  ]
-  return items.filter((item) => item.included)
+  return buildPlanFeatureList(plan).filter(
+    (f) => f.type !== 'priorityReservation' && f.type !== 'fineExempt'
+  )
 }
 
 function PlanStats({ plan }) {
