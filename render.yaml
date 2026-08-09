@@ -15,7 +15,9 @@ services:
       #   JWT_EXPIRATION             optional, default 86400000 (24h)
       #   FRONTEND_URL               e.g. https://your-app.vercel.app  (must be the EXACT live Vercel origin)
       #   CORS_ALLOWED_ORIGINS       optional; comma-separated override for the CORS allow-list
-      #   RAZORPAY_KEY_ID            optional unless payments are used
-      #   RAZORPAY_KEY_SECRET        optional unless payments are used
+      #   CASHFREE_APP_ID            REQUIRED for payments - your Cashfree sandbox/production Client ID
+      #   CASHFREE_SECRET_KEY        REQUIRED for payments - your Cashfree sandbox/production Secret Key
+      #   CASHFREE_ENVIRONMENT       optional; sandbox or production (default sandbox)
+      #   CASHFREE_NOTIFY_URL        optional; public URL for webhooks, e.g. https://<this-app>.onrender.com/api/payments/webhook
       #   GOOGLE_CLIENT_ID           optional (disables Google OAuth when unset)
       #   GOOGLE_CLIENT_SECRET       optional
