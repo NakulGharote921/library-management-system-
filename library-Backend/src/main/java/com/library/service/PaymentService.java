@@ -71,8 +71,9 @@ public class PaymentService {
         int amountPaise = fine.getAmount().multiply(BigDecimal.valueOf(100)).intValue();
         log.info("Fine payment order started: fineId={}, amountPaise={}, currency=INR", fineId, amountPaise);
 
-        Optional<PaymentTransaction> active = paymentTransactionRepository
-                .findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES);
+        Optional<PaymentTransaction> active = reusablePending(
+                paymentTransactionRepository.findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES),
+                amountPaise);
         if (active.isPresent()) {
             PaymentTransaction existing = active.get();
             if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
@@ -158,8 +159,9 @@ public class PaymentService {
             return toOrderDto(paymentTransactionRepository.save(transaction), 0);
         }
 
-        Optional<PaymentTransaction> active = paymentTransactionRepository
-                .findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES);
+        Optional<PaymentTransaction> active = reusablePending(
+                paymentTransactionRepository.findFirstBySubscriptionIdAndStatusInOrderByCreatedAtDesc(subscriptionId, ACTIVE_STATUSES),
+                amountPaise);
         if (active.isPresent()) {
             PaymentTransaction existing = active.get();
             if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
@@ -211,6 +213,44 @@ public class PaymentService {
                 .currency(transaction.getCurrency() == null ? "INR" : transaction.getCurrency())
                 .keyId(razorpayKeyId)
                 .build();
+    }
+
+    private Optional<PaymentTransaction> reusablePending(Optional<PaymentTransaction> active, int expectedPaise) {
+        if (active.isEmpty()) {
+            return active;
+        }
+        PaymentTransaction existing = active.get();
+        if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
+            return active;
+        }
+        boolean stale = existing.getCreatedAt() == null
+                || existing.getCreatedAt().isBefore(LocalDateTime.now().minusMinutes(15));
+        if (stale) {
+            log.info("Stale pending payment {} (created {}) - marking FAILED, creating fresh order",
+                    existing.getRazorpayOrderId(), existing.getCreatedAt());
+            existing.setStatus(PaymentTransaction.STATUS_FAILED);
+            existing.setCompletedAt(LocalDateTime.now());
+            paymentTransactionRepository.save(existing);
+            return Optional.empty();
+        }
+        try {
+            RazorpayClient client = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
+            Order razorpayOrder = client.orders.fetch(existing.getRazorpayOrderId());
+            int orderPaise = ((Number) razorpayOrder.get("amount")).intValue();
+            if (orderPaise != expectedPaise) {
+                log.warn("Pending order {} has amount {} paise, expected {} paise - marking FAILED, creating fresh order",
+                        existing.getRazorpayOrderId(), orderPaise, expectedPaise);
+                existing.setStatus(PaymentTransaction.STATUS_FAILED);
+                existing.setCompletedAt(LocalDateTime.now());
+                paymentTransactionRepository.save(existing);
+                return Optional.empty();
+            }
+            return active;
+        } catch (Exception e) {
+            log.warn("Could not fetch razorpay order {} - reusing pending transaction: {}",
+                    existing.getRazorpayOrderId(), e.getMessage());
+            return active;
+        }
     }
 
     @Transactional
