@@ -1,0 +1,24 @@
+{
+  "name": "library_management_system_java_full_stack",
+  "version": "1.0.0",
+  "description": "> A production-grade Enterprise Library Management System (ELMS) with JWT-based authentication, role-based access control, category management, subscription plans, fine management, Cashfree payments, and real-time analytics.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NakulGharote921/E-Library-Management-System.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/NakulGharote921/E-Library-Management-System/issues"
+  },
+  "homepage": "https://github.com/NakulGharote921/E-Library-Management-System#readme"
+}
