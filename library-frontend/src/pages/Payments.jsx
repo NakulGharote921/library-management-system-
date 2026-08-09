@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import {
   DollarSign, RefreshCw, AlertTriangle, CheckCircle, Clock,
-  Download, CreditCard, Crown, Printer, Receipt, BookOpen, User, Sparkles
+  Download, CreditCard, Crown, Printer, Receipt
 } from 'lucide-react'
 import { useSelector } from 'react-redux'
 import { selectUser, selectUserRole } from '../store/authSlice.js'
 import Button from '../components/Button.jsx'
 import Modal from '../components/Modal.jsx'
 import PageSkeleton from '../components/PageSkeleton.jsx'
+import PaymentReceipt from '../components/PaymentReceipt.jsx'
 import { getApiErrorMessage, fineService, paymentService } from '../services/api.js'
 
 const TYPE_ICONS = { FINE: DollarSign, SUBSCRIPTION: Crown }
@@ -25,41 +27,6 @@ const STATUS_FILLED = {
   UNPAID: 'bg-amber-100 text-amber-700 dark:bg-amber-700 dark:text-amber-100',
   WAIVED: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-100',
   CANCELLED: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-100',
-}
-
-const WORDS_1_19 = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
-const WORDS_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
-
-function twoDigits(n) {
-  if (n < 20) return WORDS_1_19[n]
-  const ten = Math.floor(n / 10)
-  const one = n % 10
-  return (WORDS_TENS[ten] + (one ? ` ${WORDS_1_19[one]}` : '')).trim()
-}
-
-function threeDigits(n) {
-  const hundred = Math.floor(n / 100)
-  const rest = n % 100
-  let out = ''
-  if (hundred) out += `${WORDS_1_19[hundred]} Hundred`
-  if (rest) out += (out ? ' ' : '') + twoDigits(rest)
-  return out
-}
-
-function numberToWords(amount) {
-  const [whole, decimal = ''] = Number(amount).toFixed(2).split('.')
-  let n = parseInt(whole, 10)
-  const crore = Math.floor(n / 10000000); n %= 10000000
-  const lakh = Math.floor(n / 100000); n %= 100000
-  const thousand = Math.floor(n / 1000); n %= 1000
-  const parts = []
-  if (crore) parts.push(`${threeDigits(crore)} Crore`)
-  if (lakh) parts.push(`${threeDigits(lakh)} Lakh`)
-  if (thousand) parts.push(`${threeDigits(thousand)} Thousand`)
-  if (n) parts.push(threeDigits(n))
-  const paise = parseInt(decimal, 10)
-  const rupees = parts.length ? parts.join(' ') : 'Zero'
-  return paise ? `${rupees} Rupees and ${twoDigits(paise)} Paise Only` : `${rupees} Rupees Only`
 }
 
 function StatusIcon({ status }) {
@@ -87,7 +54,6 @@ export default function Payments() {
   const [tab, setTab] = useState('all')
   const [typeFilter, setTypeFilter] = useState('')
   const [receiptTxn, setReceiptTxn] = useState(null)
-  const receiptRef = useRef(null)
   const payingRef = useRef(false)
   const rzpSettledRef = useRef(false)
   const lastErrorToastRef = useRef({ msg: '', at: 0 })
@@ -236,32 +202,16 @@ export default function Payments() {
         finish()
       })
       rzp.open()
-    } catch (e) {
+    } catch {
       showErrorOnce('Payment could not be started. Please try again.')
       finish()
       load(true)
     }
   }
 
-  const handlePrint = () => {
-    const el = receiptRef.current
-    if (!el) return
-    const win = window.open('', '', 'width=800,height=600')
-    if (!win) return
-    win.document.write(`<html><head><title>Receipt</title><style>
-      body { font-family: system-ui, sans-serif; padding: 40px; color: #1f2937; }
-      h1 { font-size: 20px; margin: 0 0 4px; }
-      .meta { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
-      table { width: 100%; border-collapse: collapse; font-size: 14px; }
-      td { padding: 8px 0; }
-      td:last-child { text-align: right; font-weight: 600; }
-      .divider { border-top: 1px dashed #d1d5db; }
-      .total td { padding-top: 12px; font-size: 16px; }
-      .footer { margin-top: 32px; font-size: 12px; color: #9ca3af; text-align: center; }
-    </style></head><body>${el.innerHTML}</body></html>`)
-    win.document.close()
-    win.print()
-  }
+  const handlePrint = () => window.print()
+
+  const handlePdf = () => window.print()
 
   const handleWaive = async (fineId) => {
     const reason = prompt('Reason for waiving this fine:')
@@ -455,130 +405,32 @@ export default function Payments() {
         open={!!receiptTxn}
         onClose={() => setReceiptTxn(null)}
         title="Payment Receipt"
-        size="sm"
+        size="lg"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" size="sm" type="button" icon={Printer} onClick={handlePrint}>
-              Print
+              Print Receipt
             </Button>
-            <Button variant="primary" size="sm" type="button" onClick={() => setReceiptTxn(null)}>
+            <Button variant="primary" size="sm" type="button" icon={Download} onClick={handlePdf}>
+              Download PDF
+            </Button>
+            <Button variant="secondary" size="sm" type="button" onClick={() => setReceiptTxn(null)}>
               Close
             </Button>
           </div>
         }
       >
         {receiptTxn && (
-          <div ref={receiptRef} className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 px-5 py-4 text-white">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
-                    <BookOpen className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold leading-tight">Library Management System</p>
-                    <p className="text-[11px] uppercase tracking-wider text-white/70">Official Payment Receipt</p>
-                  </div>
-                </div>
-                <span className={`inline-flex shrink-0 items-center rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${(receiptTxn.status === 'SUCCESS' || receiptTxn.status === 'PAID') ? 'bg-emerald-400/20 text-emerald-200' : ''}`}>
-                  <StatusIcon status={receiptTxn.status} />
-                  <StatusLabel status={receiptTxn.status} />
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-4 bg-white p-5 dark:bg-gray-900">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 sm:col-span-1">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-                    <User className="h-3.5 w-3.5" /> Billed To
-                  </p>
-                  <p className="mt-1 font-semibold text-gray-900 dark:text-gray-50">{user?.name || 'Member'}</p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
-                </div>
-                <div className="space-y-2 text-right">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Receipt No.</p>
-                    <p className="mt-0.5 font-mono text-xs font-semibold text-gray-900 dark:text-gray-50">
-                      {receiptTxn.type === 'FINE' ? `FIN-${receiptTxn.fineId || receiptTxn.id}` : `SUB-${receiptTxn.subscription?.id || receiptTxn.id}`}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">Date</p>
-                    <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-300">
-                      {new Date(receiptTxn.date || receiptTxn.createdAt || receiptTxn.completedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ${TYPE_COLORS[receiptTxn.type || receiptTxn.paymentType] || TYPE_COLORS.FINE}`}>
-                  {(receiptTxn.type || receiptTxn.paymentType) === 'SUBSCRIPTION' ? <Sparkles className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
-                  {(receiptTxn.type || receiptTxn.paymentType) === 'SUBSCRIPTION' ? 'Membership Subscription' : 'Fine Payment'}
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                  <CreditCard className="h-3.5 w-3.5" /> Razorpay
-                </span>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:bg-gray-800/50 dark:text-gray-400">
-                  <span>Description</span>
-                  <span>Amount</span>
-                </div>
-                <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                  <div className="flex items-start justify-between gap-4 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-50">{receiptTxn.label || receiptTxn.description || `${receiptTxn.type || receiptTxn.paymentType} Payment`}</p>
-                      {receiptTxn.detail && <p className="mt-0.5 text-xs text-gray-500">{receiptTxn.detail}</p>}
-                    </div>
-                    <p className="shrink-0 text-sm text-gray-600 dark:text-gray-300">₹{receiptTxn.amount}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t-2 border-dashed border-gray-200 dark:border-gray-700" />
-
-              <div className="flex items-end justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Total Paid</p>
-                  <p className="mt-1 text-[11px] text-gray-400">{numberToWords(receiptTxn.amount)}</p>
-                </div>
-                <p className="shrink-0 text-2xl font-extrabold text-gray-900 dark:text-gray-50">₹{receiptTxn.amount}</p>
-              </div>
-
-              {(receiptTxn.razorpayOrderId || receiptTxn.razorpayPaymentId) && (
-                <div className="rounded-lg bg-gray-50 p-3 text-[11px] dark:bg-gray-800/50">
-                  {receiptTxn.razorpayOrderId && (
-                    <div className="flex items-center justify-between gap-3 py-0.5">
-                      <span className="text-gray-500">Order ID</span>
-                      <span className="truncate font-mono text-gray-700 dark:text-gray-300">{receiptTxn.razorpayOrderId}</span>
-                    </div>
-                  )}
-                  {receiptTxn.razorpayPaymentId && (
-                    <div className="flex items-center justify-between gap-3 py-0.5">
-                      <span className="text-gray-500">Payment ID</span>
-                      <span className="truncate font-mono text-gray-700 dark:text-gray-300">{receiptTxn.razorpayPaymentId}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="pt-1 text-center">
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Thank you for using Library Management System</p>
-                <p className="mt-0.5 text-[11px] text-gray-400">This is a computer generated receipt and does not require a signature.</p>
-              </div>
-
-              <div className="flex items-center gap-2 pt-1 text-gray-300 dark:text-gray-600">
-                <span className="h-3 w-3 flex-none rotate-45 rounded-full border border-current bg-white dark:bg-gray-900" />
-                <span className="h-px flex-1 border-t border-dashed border-current" />
-                <span className="h-3 w-3 flex-none rotate-45 rounded-full border border-current bg-white dark:bg-gray-900" />
-              </div>
-            </div>
-          </div>
+          <PaymentReceipt txn={receiptTxn} memberName={user?.name} memberEmail={user?.email} />
         )}
       </Modal>
+
+      {receiptTxn && createPortal(
+        <div className="receipt-print hidden print:block">
+          <PaymentReceipt txn={receiptTxn} memberName={user?.name} memberEmail={user?.email} />
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
