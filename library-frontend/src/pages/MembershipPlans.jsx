@@ -95,6 +95,11 @@ export default function MembershipPlans() {
 
       const priceInRupees = Number(sub.plan?.price ?? order.amount / 100)
       const amountInPaise = Number(order.amount)
+      if (priceInRupees > 0 && amountInPaise !== Math.round(priceInRupees * 100)) {
+        console.warn(
+          `PRICE MISMATCH: plan=${priceInRupees} rupees, expected order=${Math.round(priceInRupees * 100)} paise, got order=${amountInPaise} paise — stale backend order conversion detected`
+        )
+      }
       const options = {
         key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNLiCQpt3YZGUr',
         amount: amountInPaise,
