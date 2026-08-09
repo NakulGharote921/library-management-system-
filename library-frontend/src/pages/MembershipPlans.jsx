@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { Award, BookOpen, Check, CircleCheck, Crown, RefreshCw, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../components/Button.jsx'
 import { CardSkeleton } from '../components/PageSkeleton.jsx'
+import { selectUser } from '../store/authSlice.js'
 import { getApiErrorMessage, paymentService, subscriptionService, userSubscriptionService } from '../services/api.js'
 import { parsePlanFeatures } from '../utils/planFeatures.js'
 
@@ -18,6 +20,7 @@ function PlanCheckItem({ text, included }) {
 
 export default function MembershipPlans() {
   const navigate = useNavigate()
+  const user = useSelector(selectUser)
   const [plans, setPlans] = useState([])
   const [activeSub, setActiveSub] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -94,8 +97,9 @@ export default function MembershipPlans() {
         key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNLiCQpt3YZGUr',
         amount: order.amount,
         currency: order.currency || 'INR',
-        name: 'Library Management',
-        description: `${sub.plan?.name || 'Membership'} Plan`,
+        name: 'KodNest Library',
+        description: `${sub.plan?.name || 'Membership'} Membership`,
+        image: window.location.protocol === 'https:' ? `${window.location.origin}/kodnest-logo.png` : undefined,
         order_id: order.orderId,
         handler: async (response) => {
           if (rzpSettledRef.current) return
@@ -123,8 +127,8 @@ export default function MembershipPlans() {
             load()
           },
         },
-        prefill: { contact: '', email: '' },
-        theme: { color: '#6366f1' },
+        prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' },
+        theme: { color: '#2563EB' },
       }
       let rzp
       try {

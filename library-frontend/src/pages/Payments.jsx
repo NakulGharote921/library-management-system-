@@ -146,8 +146,9 @@ export default function Payments() {
         key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNLiCQpt3YZGUr',
         amount: order.amount,
         currency: order.currency || 'INR',
-        name: 'Library Management',
+        name: 'KodNest Library',
         description: `Fine #${fineId}`,
+        image: window.location.protocol === 'https:' ? `${window.location.origin}/kodnest-logo.png` : undefined,
         order_id: order.orderId,
         handler: async (response) => {
           if (rzpSettledRef.current) return
@@ -181,8 +182,8 @@ export default function Payments() {
             finish()
           },
         },
-        prefill: { contact: '', email: '' },
-        theme: { color: '#6366f1' },
+        prefill: { name: user?.name || '', email: user?.email || '', contact: user?.phone || '' },
+        theme: { color: '#2563EB' },
       }
       let rzp
       try {
