@@ -93,12 +93,14 @@ export default function MembershipPlans() {
         return
       }
 
+      const priceInRupees = Number(sub.plan?.price ?? order.amount / 100)
+      const amountInPaise = Number(order.amount)
       const options = {
         key: order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNLiCQpt3YZGUr',
-        amount: order.amount,
+        amount: amountInPaise,
         currency: order.currency || 'INR',
         name: 'KodNest Library',
-        description: `${sub.plan?.name || 'Membership'} Membership`,
+        description: `${sub.plan?.name || 'Membership'} Membership — ${priceInRupees.toLocaleString('en-IN')}`,
         image: window.location.protocol === 'https:' ? `${window.location.origin}/kodnest-logo.png` : undefined,
         order_id: order.orderId,
         handler: async (response) => {
