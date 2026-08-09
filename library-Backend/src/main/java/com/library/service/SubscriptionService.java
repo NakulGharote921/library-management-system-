@@ -134,7 +134,7 @@ public class SubscriptionService {
         PaymentTransaction transaction = PaymentTransaction.builder()
                 .user(user)
                 .subscription(sub)
-                .razorpayOrderId("ADMIN_" + sub.getId())
+                .cashfreeOrderId("ADMIN_" + sub.getId())
                 .amount(plan.getPrice() == null ? BigDecimal.ZERO : plan.getPrice())
                 .currency("INR")
                 .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
@@ -152,8 +152,8 @@ public class SubscriptionService {
         UserSubscription sub = userSubscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new ResourceNotFoundException("UserSubscription", subscriptionId));
         sub.setStatus(UserSubscription.STATUS_ACTIVE);
-        sub.setRazorpayOrderId(orderId);
-        sub.setRazorpayPaymentId(paymentId);
+        sub.setCashfreeOrderId(orderId);
+        sub.setCashfreePaymentId(paymentId);
         sub.setActivatedAt(LocalDateTime.now());
         return userSubscriptionRepository.save(sub);
     }

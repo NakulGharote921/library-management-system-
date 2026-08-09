@@ -59,7 +59,7 @@ public class LegacySchemaMigration {
             if (count != null && count > 0) {
                 int deleted = jdbcTemplate.update(
                         "DELETE FROM payment_transactions WHERE razorpay_order_id IS NULL AND status = 'PENDING'");
-                log.warn("Legacy cleanup: deleted {} orphaned PENDING transaction(s) without razorpayOrderId (leftover from the Cashfree migration)",
+                log.warn("Legacy cleanup: deleted {} orphaned PENDING transaction(s) without a Cashfree order id (leftover from the Cashfree migration)",
                         deleted);
             } else {
                 log.info("Legacy cleanup: no orphaned PENDING transactions found");

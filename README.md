@@ -1,6 +1,6 @@
 # Lumina Library Management System
 
-> A production-grade Enterprise Library Management System (ELMS) with JWT-based authentication, role-based access control, category management, subscription plans, fine management, Razorpay payments, and real-time analytics.
+> A production-grade Enterprise Library Management System (ELMS) with JWT-based authentication, role-based access control, category management, subscription plans, fine management, Cashfree payments, and real-time analytics.
 
 ## Overview
 
@@ -14,7 +14,7 @@ The system handles the complete book lifecycle — acquisition, cataloging, lend
 - **Category Management** — Dynamic category catalog with full admin CRUD (create, edit, retire, delete), duplicate-name protection (409), validation (400), and a cached global category store powering every dropdown and filter across the app
 - **Book Lifecycle Management** — CRUD operations, cataloging by category/author/publisher, ISBN tracking, cover upload, per-copy availability management
 - **Issue & Return System** — Member send-borrow-request → admin approval workflow with in-app + email notifications, due-date tracking, renewal limits, and automatic overdue detection
-- **Fine Engine** — Auto-calculated overdue fines, manual/waved fines, Razorpay payment gateway integration
+- **Fine Engine** — Auto-calculated overdue fines, manual/waved fines, Cashfree payment gateway integration
 - **Reservation & Waitlist** — FIFO queue-based reservation with WAITING → READY_FOR_PICKUP → COMPLETED/EXPIRED lifecycle, 48-hour pickup hold, position tracking, in-app + email notifications
 - **Subscription Plans** — Tiered service plans with configurable borrowing limits, loan durations, fine exemptions, featured (Most Popular) flags, and retire workflow
 - **Wishlist** — Persistent per-user book wishlist with unique constraints
@@ -45,7 +45,7 @@ The application follows a **client-server architecture** with a decoupled fronte
 │  Tailwind CSS UI    │◄─────►│  Security Layer (JWT + BCrypt)         │
 │  Redux Toolkit      │       │  Service Layer (Business Logic)         │
 │  Axios HTTP Client  │       │  Data Layer (JPA / Hibernate)          │
-│  React Router DOM   │       │  Payment Gateway (Razorpay SDK)         │
+│  React Router DOM   │       │  Payment Gateway (Cashfree SDK)         │
 └─────────────────────┘       └──────────────────┬──────────────────────┘
                                                   │
                                         ┌─────────▼─────────┐
@@ -122,8 +122,9 @@ spring.datasource.username=root
 spring.datasource.password=your_password
 spring.sql.init.mode=always
 jwt.secret=your-256-bit-jwt-secret-key-here-minimum-32-chars
-razorpay.key-id=your_razorpay_key_id
-razorpay.key-secret=your_razorpay_key_secret
+cashfree.app-id=your_cashfree_app_id
+cashfree.secret-key=your_cashfree_secret_key
+cashfree.environment=sandbox
 ```
 
 ### Step 4: Start the backend
@@ -158,8 +159,9 @@ The app opens at `http://localhost:3000`.
 | `jwt.secret` | — | JWT signing key (min 32 chars) |
 | `jwt.expiration-ms` | `86400000` | JWT validity (24 hours) |
 | `fine.rate-per-day` | `5` | Overdue fine amount per day |
-| `razorpay.key-id` | — | Razorpay API key ID |
-| `razorpay.key-secret` | — | Razorpay API secret key |
+| `cashfree.app-id` | — | Cashfree API app ID (`CASHFREE_APP_ID`) |
+| `cashfree.secret-key` | — | Cashfree API secret key (`CASHFREE_SECRET_KEY`, server-side only) |
+| `cashfree.environment` | `sandbox` | `sandbox` or `production` |
 
 ### Frontend (`.env`)
 
@@ -186,7 +188,7 @@ The app opens at `http://localhost:3000`.
 3. **Borrow** available books — the system checks your subscription limits
 4. **Return** books before the due date to avoid fines
 5. **Reserve** books that are currently checked out and join the waitlist
-6. **Pay fines** online via Razorpay if any overdue charges apply
+6. **Pay fines** online via Cashfree if any overdue charges apply
 7. **Manage your wishlist** and track reading history
 8. **Upgrade your subscription** to unlock higher borrowing limits and premium features
 
@@ -228,7 +230,7 @@ Handles book issuing (with subscription-limit enforcement), returns with automat
 Tiered plan system with configurable parameters (max books, loan days, renewals, reservations, priority reservation, fine exemption, features list). Includes plan lifecycle management (ACTIVE/INACTIVE/RETIRED), Most Popular flagging, and auto-expiry via daily scheduler.
 
 ### Fine & Payment Module
-Auto-generates overdue fines on late returns. Supports manual and waived fines. Integrates with Razorpay for online payment processing with order creation, signature verification, and webhook handling.
+Auto-generates overdue fines on late returns. Supports manual and waived fines. Integrates with Cashfree for online payment processing with order creation, payment verification, and webhook handling.
 
 ### Reservation Module
 Queue-based waitlist system with position tracking. Supports waiting, ready-for-pickup, fulfilled, expired, and cancelled states. Prevents duplicate active reservations.
@@ -259,7 +261,7 @@ Member requests return → Admin approves return
     → System checks due date
     → If overdue: Auto-generates Fine(OVERDUE, rate × days)
     → Updates IssuedBook status to RETURNED, increments available copies
-    → Member can pay fine via Razorpay
+    → Member can pay fine via Cashfree
     → Checks reservation queue → nearest WAITING reservation becomes READY_FOR_PICKUP
 ```
 
@@ -276,7 +278,7 @@ Member requests unavailable book → System validates (active membership, no unp
 
 ### Subscription Purchase Flow
 ```
-Member selects plan → Razorpay order created → Member pays on Razorpay checkout
+Member selects plan → Cashfree order created → Member pays on Cashfree checkout
     → System verifies payment signature → Subscription activated
     → Daily scheduler checks expiry → Marks EXPIRED when endDate passes
 ```
@@ -329,7 +331,7 @@ SubscriptionPlan ──1:N──► UserSubscription (plan assignment)
 
 ### Key Design Decisions
 
-- **Indexed columns**: `email` (unique), `isbn` (unique), `razorpay_order_id` (unique), `book_id` + `user_id` in join tables
+- **Indexed columns**: `email` (unique), `isbn` (unique), `order_id (Cashfree)` (unique), `book_id` + `user_id` in join tables
 - **Soft references**: Role stored as enum string, status fields as strings for readability
 - **Cascading**: `User` → `UserSubscription` uses `CascadeType.ALL` for lifecycle management
 - **Audit fields**: `createdAt`, `updatedAt`, `lastLogin` for temporal tracking
@@ -345,13 +347,13 @@ SubscriptionPlan ──1:N──► UserSubscription (plan assignment)
 - **SQL Injection Protection** — JPA parameterized queries throughout
 - **XSS Prevention** — Spring Security default headers, JSON response encoding
 - **CSRF Protection** — Disabled (stateless JWT architecture)
-- **Secure Payment Flow** — Razorpay signature verification on server side, webhook with IPN validation
+- **Secure Payment Flow** — Cashfree webhook HMAC-SHA256 verification on server side, amount checks before activation
 
 ## Performance Optimizations
 
 - **Lazy Loading** — JPA `FetchType.LAZY` on all collection associations to minimize database queries
 - **Pagination** — Server-side pagination on user listing and search endpoints to reduce payload size
-- **Indexed Search Columns** — Unique indexes on `email`, `isbn`, `razorpay_order_id` for O(1) lookups
+- **Indexed Search Columns** — Unique indexes on `email`, `isbn`, `order_id (Cashfree)` for O(1) lookups
 - **Cached Category Store** — Global category context fetches once and refetches only on mutations, avoiding duplicate API calls across pages
 - **Stateless Architecture** — No server-side session overhead; JWT tokens are self-contained
 - **Vite Build Optimizations** — Tree-shaking, code splitting, and minified production bundles
@@ -402,7 +404,7 @@ Modals render via React portals into `document.body` with `fixed inset-0` overla
 | H2 | Runtime/test database |
 | Lombok | Boilerplate reduction |
 | Jakarta Validation | Input validation |
-| Razorpay Java SDK | Payment gateway integration |
+| Cashfree REST API (RestClient) | Payment gateway integration |
 | Maven | Build & dependency management |
 
 ### Frontend
@@ -427,7 +429,7 @@ Modals render via React portals into `document.body` with `fixed inset-0` overla
 
 - **Enterprise-grade RBAC** with role-aware frontend navigation and method-level backend authorization
 - **Dynamic category system** — admin-managed categories with duplicate protection, powering every filter and dropdown from a single cached store
-- **Tiered subscription system** with configurable plans, auto-expiry scheduler, and Razorpay payment integration
+- **Tiered subscription system** with configurable plans, auto-expiry scheduler, and Cashfree payment integration
 - **Real-time fine calculation engine** that auto-generates overdue fines on return with customizable daily rates
 - **Queue-based reservation system** with position tracking and fulfillment lifecycle
 - **Comprehensive analytics** covering books, members, loans, subscriptions, revenue, and trend data
@@ -441,7 +443,7 @@ Modals render via React portals into `document.body` with `fixed inset-0` overla
 | **Subscription limit enforcement** during book issuance | Service layer checks `maxBooks` and `maxLoanDays` against current usage before allowing borrow; returns descriptive error on violation |
 | **Fine calculation timing** (overdue fines generated only on return, not continuously) | Fine entity generated at return time with precise day calculation; avoids accumulating duplicate fines |
 | **Reservation queue ordering** without race conditions | Atomic queue position assignment using count query within transactional context |
-| **Razorpay payment verification** on server side | Signature verification using HMAC-SHA256 with Razorpay's key secret; webhook handler for async status updates |
+| **Cashfree payment verification** on server side | HMAC-SHA256 webhook signature verification with the Cashfree secret key's key secret; webhook handler for async status updates |
 | **Role-aware frontend navigation** without duplicating route components | `ProtectedRoute` + `RoleGuard` wrapper components; sidebar renders conditionally based on `user.role` from Redux store |
 | **Auto-expiry of subscriptions** without a full-time job scheduler | Spring `@Scheduled` cron job runs daily; batch-updates expired subscriptions using `endDate < CURRENT_DATE` query |
 | **Modal focus loss while typing** | Focus-trap effect now runs only on the `open` transition (stale `onClose` references held in a ref), so re-renders never steal focus from inputs |
@@ -541,8 +543,8 @@ A: The daily scheduler automatically marks expired subscriptions. The member ret
 **Q: Are late fees calculated automatically?**
 A: Yes. Overdue fines are calculated at return time based on the number of overdue days multiplied by the configurable daily rate (`fine.rate-per-day`).
 
-**Q: Can I use Razorpay in test mode?**
-A: Yes. Use Razorpay test keys (`rzp_test_*`) in your configuration. The system handles both test and live modes seamlessly.
+**Q: Can I use Cashfree in test mode?**
+A: Yes. Use Cashfree sandbox keys in your configuration (`CASHFREE_ENVIRONMENT=sandbox`). The system handles both test and live modes seamlessly.
 
 ## License
 
@@ -564,7 +566,7 @@ This project is licensed under the **MIT License**.
 
 - Spring Boot team for the excellent framework ecosystem
 - React and Vite teams for the frontend tooling
-- Razorpay for the payment gateway SDK
+- Cashfree Payments for the payment gateway SDK
 - Tailwind CSS for the utility-first CSS framework
 - All open-source contributors whose libraries made this project possible
 

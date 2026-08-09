@@ -46,12 +46,14 @@ public class PaymentTransaction {
     private UserSubscription subscription;
 
     @NotNull
-    @Column(nullable = false, unique = true)
-    private String razorpayOrderId;
+    @Column(name = "razorpay_order_id", nullable = false, unique = true)
+    private String cashfreeOrderId;
 
-    private String razorpayPaymentId;
+    @Column(name = "razorpay_payment_id")
+    private String cashfreePaymentId;
 
-    private String razorpaySignature;
+    @Column(name = "razorpay_signature")
+    private String cashfreeSessionId;
 
     @NotNull
     @Column(nullable = false, precision = 10, scale = 2)

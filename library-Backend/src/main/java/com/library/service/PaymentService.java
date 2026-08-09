@@ -70,7 +70,7 @@ public class PaymentService {
             if (PaymentTransaction.STATUS_SUCCESS.equals(existing.getStatus())) {
                 throw new BusinessException(HttpStatus.CONFLICT, "Fine is already paid.");
             }
-            log.info("Reusing existing pending payment order {} for fine id={}", existing.getRazorpayOrderId(), fineId);
+            log.info("Reusing existing pending payment order {} for fine id={}", existing.getCashfreeOrderId(), fineId);
             return toOrderDto(existing);
         }
 
@@ -121,7 +121,7 @@ public class PaymentService {
             PaymentTransaction transaction = PaymentTransaction.builder()
                     .user(user)
                     .subscription(sub)
-                    .razorpayOrderId("FREE_" + subscriptionId)
+                    .cashfreeOrderId("FREE_" + subscriptionId)
                     .amount(BigDecimal.ZERO)
                     .currency("INR")
                     .paymentType(PaymentTransaction.TYPE_SUBSCRIPTION)
@@ -141,7 +141,7 @@ public class PaymentService {
                 throw new BusinessException(HttpStatus.CONFLICT, "Subscription is already paid.");
             }
             log.info("Reusing existing pending subscription payment order {} for subscription id={}",
-                    existing.getRazorpayOrderId(), subscriptionId);
+                    existing.getCashfreeOrderId(), subscriptionId);
             return toOrderDto(existing);
         }
 
@@ -167,7 +167,7 @@ public class PaymentService {
                 .user(user)
                 .fine(fine)
                 .subscription(sub)
-                .razorpayOrderId(orderId)
+                .cashfreeOrderId(orderId)
                 .amount(amountInRupees)
                 .currency("INR")
                 .paymentType(paymentType)
@@ -179,7 +179,7 @@ public class PaymentService {
             CashfreeGateway.OrderResult order = cashfreeGateway.createOrder(
                     orderId, amountInRupees, String.valueOf(user.getId()),
                     user.getEmail(), user.getPhone(), notifyUrl);
-            transaction.setRazorpaySignature(order.paymentSessionId());
+            transaction.setCashfreeSessionId(order.paymentSessionId());
             return paymentTransactionRepository.save(transaction);
         } catch (BusinessException e) {
             transaction.setStatus(PaymentTransaction.STATUS_FAILED);
@@ -191,10 +191,10 @@ public class PaymentService {
 
     private OrderResponseDto toOrderDto(PaymentTransaction transaction) {
         return OrderResponseDto.builder()
-                .orderId(transaction.getRazorpayOrderId())
+                .orderId(transaction.getCashfreeOrderId())
                 .amount(transaction.getAmount())
                 .currency(transaction.getCurrency() == null ? "INR" : transaction.getCurrency())
-                .paymentSessionId(transaction.getRazorpaySignature())
+                .paymentSessionId(transaction.getCashfreeSessionId())
                 .build();
     }
 
@@ -210,7 +210,7 @@ public class PaymentService {
             return Optional.empty();
         }
         log.info("Existing pending payment {} (created {}) is not reusable - marking FAILED, creating fresh order",
-                existing.getRazorpayOrderId(), existing.getCreatedAt());
+                existing.getCashfreeOrderId(), existing.getCreatedAt());
         existing.setStatus(PaymentTransaction.STATUS_FAILED);
         existing.setCompletedAt(LocalDateTime.now());
         paymentTransactionRepository.save(existing);
@@ -219,7 +219,7 @@ public class PaymentService {
 
     @Transactional
     public PaymentTransaction verifyPayment(String orderId, String paymentId) {
-        PaymentTransaction transaction = paymentTransactionRepository.findByRazorpayOrderId(orderId)
+        PaymentTransaction transaction = paymentTransactionRepository.findByCashfreeOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", orderId));
 
         if (PaymentTransaction.STATUS_SUCCESS.equals(transaction.getStatus())) {
@@ -272,7 +272,7 @@ public class PaymentService {
 
     @Transactional
     public PaymentTransaction markPaymentFailed(User user, String orderId) {
-        PaymentTransaction transaction = paymentTransactionRepository.findByRazorpayOrderId(orderId)
+        PaymentTransaction transaction = paymentTransactionRepository.findByCashfreeOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", orderId));
         boolean isAdmin = user.getRole() == User.Role.ADMIN;
         if (!isAdmin && !transaction.getUser().getId().equals(user.getId())) {
@@ -308,7 +308,7 @@ public class PaymentService {
                 return;
             }
 
-            Optional<PaymentTransaction> existing = paymentTransactionRepository.findByRazorpayOrderId(orderId);
+            Optional<PaymentTransaction> existing = paymentTransactionRepository.findByCashfreeOrderId(orderId);
             if (existing.isEmpty()) {
                 log.warn("No transaction found for order: {}", orderId);
                 return;
@@ -344,7 +344,7 @@ public class PaymentService {
     }
 
     private void completePayment(PaymentTransaction transaction, String paymentId) {
-        transaction.setRazorpayPaymentId(paymentId);
+        transaction.setCashfreePaymentId(paymentId);
         transaction.setStatus(PaymentTransaction.STATUS_SUCCESS);
         transaction.setCompletedAt(LocalDateTime.now());
         paymentTransactionRepository.save(transaction);
@@ -355,12 +355,12 @@ public class PaymentService {
         if (transaction.getSubscription() != null) {
             subscriptionService.activateSubscription(
                     transaction.getSubscription().getId(),
-                    transaction.getRazorpayOrderId(),
+                    transaction.getCashfreeOrderId(),
                     paymentId);
         }
 
         log.info("Payment completed for order: {}, payment: {}, type: {}",
-                transaction.getRazorpayOrderId(), paymentId, transaction.getPaymentType());
+                transaction.getCashfreeOrderId(), paymentId, transaction.getPaymentType());
     }
 
     public List<PaymentTransaction> getUserTransactions(User user) {
@@ -368,7 +368,7 @@ public class PaymentService {
     }
 
     public PaymentTransaction getByOrderId(String orderId) {
-        return paymentTransactionRepository.findByRazorpayOrderId(orderId)
+        return paymentTransactionRepository.findByCashfreeOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("PaymentTransaction", orderId));
     }
 

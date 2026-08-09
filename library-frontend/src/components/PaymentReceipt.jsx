@@ -51,8 +51,8 @@ export default function PaymentReceipt({ txn, memberName, memberEmail }) {
   const description = safe(txn.label) || safe(txn.description) || planName
   const detail = safe(txn.detail)
   const txDate = txn.date || txn.createdAt || txn.completedAt
-  const orderId = safe(sub?.razorpayOrderId) || safe(txn.razorpayOrderId) || safe(txn.orderId)
-  const paymentId = safe(sub?.razorpayPaymentId) || safe(txn.razorpayPaymentId) || safe(txn.paymentId)
+  const orderId = safe(sub?.cashfreeOrderId) || safe(txn.cashfreeOrderId) || safe(txn.orderId)
+  const paymentId = safe(sub?.cashfreePaymentId) || safe(txn.cashfreePaymentId) || safe(txn.paymentId)
   const validityDays = safe(plan?.validityDays)
   const maxBooks = safe(plan?.maxBooks)
   const maxLoanDays = safe(plan?.maxLoanDays)
