@@ -51,6 +51,14 @@ export default function MembershipPlans() {
 
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('payment') === 'success') {
+      toast.success('Payment successful! Your membership is now active.')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
   const handlePurchase = async (planId) => {
     if (payingRef.current) return
     payingRef.current = true
@@ -117,6 +125,7 @@ export default function MembershipPlans() {
           const cfPaymentId = data?.payment?.cfPaymentId
           await paymentService.verify(cfOrderId, cfPaymentId)
           toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
+          setTimeout(() => window.location.replace('/membership?payment=success'), 900)
         } catch (err) {
           console.debug('Payment verification failed for subscription', sub.id, err)
           showErrorOnce('Payment verification failed. Please contact support.')

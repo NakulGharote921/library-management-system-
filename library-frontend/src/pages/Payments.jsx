@@ -108,6 +108,14 @@ export default function Payments() {
     })()
   }, [load])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('payment') === 'success') {
+      toast.success('Payment successful!')
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
   const visibleTransactions = useMemo(() => {
     let result = transactions
     if (tab === 'success') {
@@ -214,6 +222,7 @@ export default function Payments() {
           const cfPaymentId = data?.payment?.cfPaymentId
           await paymentService.verify(cfOrderId, cfPaymentId)
           toast.success('Fine paid successfully')
+          setTimeout(() => window.location.replace('/payments?payment=success'), 900)
         } catch (err) {
           console.debug('Payment verification failed for fine', fineId, err)
           showErrorOnce('Payment verification failed. Please contact support.')
