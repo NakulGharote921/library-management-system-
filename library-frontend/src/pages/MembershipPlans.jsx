@@ -94,7 +94,9 @@ export default function MembershipPlans() {
       }
 
       const amountInPaise = Number(order.amount)
-      const priceInRupees = amountInPaise > 0 ? amountInPaise / 100 : Number(sub.plan?.price || 0)
+      const priceInRupees = Number(order.price) > 0
+        ? Number(order.price)
+        : (amountInPaise > 0 ? amountInPaise / 100 : Number(sub.plan?.price || 0))
       const planPriceInRupees = Number(sub.plan?.price)
       if (planPriceInRupees > 0 && priceInRupees !== planPriceInRupees) {
         console.error(

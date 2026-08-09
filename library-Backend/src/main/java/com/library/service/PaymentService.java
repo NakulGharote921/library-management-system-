@@ -63,7 +63,7 @@ public class PaymentService {
             throw new BusinessException("Invalid fine amount: cannot create payment order");
         }
         int amountPaise = razorpayGateway.toPaise(fine.getAmount());
-        log.info("Fine payment order started: fineId={}, amountPaise={}, currency=INR", fineId, amountPaise);
+        log.info("Fine payment order started: fineId={}, price={} INR, currency=INR", fineId, fine.getAmount());
 
         Optional<PaymentTransaction> existing = paymentTransactionRepository
                 .findFirstByFineIdAndStatusInOrderByCreatedAtDesc(fineId, ACTIVE_STATUSES);
@@ -74,7 +74,7 @@ public class PaymentService {
         try {
             Order razorpayOrder = razorpayGateway.createOrder(fine.getAmount(), "INR",
                     paymentType.toLowerCase() + "_" + fineId);
-            log.info("Razorpay fine order created: orderId={}, amountPaise={}, currency=INR", razorpayOrder.get("id"), amountPaise);
+            log.info("Razorpay fine order created: orderId={}, price={} INR, currency=INR", razorpayOrder.get("id"), fine.getAmount());
 
             PaymentTransaction transaction = PaymentTransaction.builder()
                     .user(user)
@@ -120,8 +120,8 @@ public class PaymentService {
             throw new BusinessException("Subscription plan is incomplete: price, validity and name are required");
         }
         int amountPaise = razorpayGateway.toPaise(plan.getPrice());
-        log.info("Subscription order started: planId={}, planName={}, price={}, amountPaise={}, currency=INR",
-                plan.getId(), plan.getName(), plan.getPrice(), amountPaise);
+        log.info("Subscription order started: planId={}, planName={}, price={} INR, currency=INR",
+                plan.getId(), plan.getName(), plan.getPrice());
 
         if (amountPaise <= 0) {
             log.info("Free plan detected, activating subscription directly: subscriptionId={}, planId={}",
@@ -153,8 +153,8 @@ public class PaymentService {
 
         try {
             Order razorpayOrder = razorpayGateway.createOrder(plan.getPrice(), "INR", "sub_" + subscriptionId);
-            log.info("Razorpay subscription order created: orderId={}, amountPaise={}, currency=INR",
-                    razorpayOrder.get("id"), amountPaise);
+            log.info("Razorpay subscription order created: orderId={}, price={} INR, currency=INR",
+                    razorpayOrder.get("id"), plan.getPrice());
 
             PaymentTransaction transaction = PaymentTransaction.builder()
                     .user(user)
@@ -186,6 +186,7 @@ public class PaymentService {
         return OrderResponseDto.builder()
                 .orderId(transaction.getRazorpayOrderId())
                 .amount(amountPaise)
+                .price(transaction.getAmount())
                 .currency(transaction.getCurrency() == null ? "INR" : transaction.getCurrency())
                 .keyId(razorpayGateway.getKeyId())
                 .build();
