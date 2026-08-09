@@ -130,16 +130,8 @@ public class CashfreeGateway {
     }
 
     private JsonNode execute(RestClient.RequestHeadersSpec<?> spec) {
-        if (appId == null || appId.isBlank() || secretKey == null || secretKey.isBlank()) {
-            throw new BusinessException("Cashfree is not configured. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY.");
-        }
         try {
-            ResponseEntity<JsonNode> response = spec
-                    .header("x-api-version", apiVersion)
-                    .header("x-client-id", appId)
-                    .header("x-client-secret", secretKey)
-                    .retrieve()
-                    .toEntity(JsonNode.class);
+            ResponseEntity<JsonNode> response = spec.retrieve().toEntity(JsonNode.class);
             return response.getBody();
         } catch (RestClientResponseException e) {
             String message = "Cashfree API error (" + e.getStatusCode().value() + ")";
