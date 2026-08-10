@@ -63,7 +63,7 @@ const FEATURES = [
   { icon: BarChart3, title: 'Analytics Dashboard', desc: 'Real-time insights into borrowing trends, revenue, and top titles.' },
   { icon: Crown, title: 'Membership Plans', desc: 'Flexible tiers with auto-renewals and instant upgrades.' },
   { icon: Bell, title: 'Notifications', desc: 'Email and in-app alerts for due dates, pickups, and announcements.' },
-  { icon: ShieldAlert, title: 'Audit Logs', desc: 'Complete, tamper-proof trail of every action in the system.' },
+  { icon: ShieldAlert, title: 'Activity Log', desc: 'Complete, tamper-proof trail of every action in the system.' },
 ]
 
 const MORPH_ITEMS = [
@@ -557,6 +557,11 @@ function PlanStats({ plan }) {
   )
 }
 
+const PLAN_STATUS_LABEL = {
+  ACTIVE: 'Active',
+  INACTIVE: 'Inactive',
+}
+
 function Plans() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
@@ -625,7 +630,7 @@ function Plans() {
         ) : sorted.length === 0 ? (
           <div className="mt-14 flex flex-col items-center justify-center rounded-[24px] border border-dashed border-gray-200 bg-white px-6 py-20 text-center dark:border-gray-700 dark:bg-gray-800">
             <Crown className="h-12 w-12 text-gray-300 dark:text-gray-600" />
-            <p className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-50">No Membership Plans Available.</p>
+            <p className="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-50">No membership plans yet.</p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Check back soon — plans are on the way.</p>
           </div>
         ) : (
@@ -657,7 +662,7 @@ function Plans() {
                             : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                       }`}
                     >
-                      {plan.status || 'ACTIVE'}
+                      {PLAN_STATUS_LABEL[plan.status] || 'Active'}
                     </span>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50">{plan.name}</h3>
                     {plan.description && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{plan.description}</p>}
@@ -865,7 +870,7 @@ function Footer() {
     {
       heading: 'Explore',
       links: [
-        { label: 'Books Catalog', href: '/books' },
+        { label: 'Browse Books', href: '/books' },
         { label: 'Categories', href: '/categories' },
         { label: 'About the Library', href: '/about' },
         { label: 'Testimonials', href: '/home/testimonials' },
@@ -875,7 +880,7 @@ function Footer() {
       heading: 'Resources',
       links: [
         { label: 'Help Center', href: '#faq' },
-        { label: 'Membership Plans', href: '/membership' },
+        { label: 'Membership', href: '/membership' },
         { label: 'Sign In', href: '/login' },
         { label: 'Create Account', href: '/register' },
       ],

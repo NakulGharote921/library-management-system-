@@ -9,7 +9,7 @@ export default function DataTable({
   searchKeys,
   pageSize = 8,
   emptyTitle = 'Nothing here yet',
-  emptySubtitle = 'Try adjusting filters or add a new record.',
+  emptySubtitle = 'Try adjusting your search or filters.',
 }) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
@@ -37,9 +37,9 @@ export default function DataTable({
               setQuery(e.target.value)
               setPage(0)
             }}
-            placeholder="Search table..."
+            placeholder="Search..."
             className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200 dark:border-gray-800 dark:bg-gray-900"
-            aria-label="Search table"
+            aria-label="Search"
           />
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-500">

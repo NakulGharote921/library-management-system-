@@ -16,9 +16,9 @@ import { borrowRequestService, getApiErrorMessage } from '../services/api.js'
 import { coverOrSlug } from '../utils/bookCovers.js'
 
 const STATUS_LABEL = {
-  PENDING: 'Pending',
+  PENDING: 'Waiting for Approval',
   APPROVED: 'Approved',
-  REJECTED: 'Rejected',
+  REJECTED: 'Not Approved',
   CANCELLED: 'Cancelled',
 }
 
@@ -112,9 +112,9 @@ function BookCell({ r }) {
 }
 
 const CARD_STYLES = {
-  PENDING: { label: 'Pending', icon: Clock, iconBg: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', active: 'border-amber-500 bg-amber-50 dark:border-amber-600 dark:bg-amber-950/40' },
+  PENDING: { label: 'Waiting for Approval', icon: Clock, iconBg: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300', active: 'border-amber-500 bg-amber-50 dark:border-amber-600 dark:bg-amber-950/40' },
   APPROVED: { label: 'Approved', icon: CheckCircle2, iconBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', active: 'border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950/40' },
-  REJECTED: { label: 'Rejected', icon: XCircle, iconBg: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300', active: 'border-rose-500 bg-rose-50 dark:border-rose-600 dark:bg-rose-950/40' },
+  REJECTED: { label: 'Not Approved', icon: XCircle, iconBg: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300', active: 'border-rose-500 bg-rose-50 dark:border-rose-600 dark:bg-rose-950/40' },
   CANCELLED: { label: 'Cancelled', icon: Ban, iconBg: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300', active: 'border-gray-500 bg-gray-50 dark:border-gray-600 dark:bg-gray-800/60' },
 }
 
@@ -187,7 +187,7 @@ export default function BorrowRequests() {
     setActionId(`approve-${approveTarget.id}`)
     try {
       await borrowRequestService.approve(approveTarget.id)
-      toast.success('Request approved — loan created and book issued to member')
+      toast.success('Borrow request approved.')
       setApproveTarget(null)
       setApproveInfo(null)
       refreshAll()
@@ -543,7 +543,7 @@ export default function BorrowRequests() {
                       <div className="flex justify-end gap-1.5">
                         {r.status === 'PENDING' && (
                           <Button variant="danger" size="xs" type="button" icon={Ban} onClick={() => setCancelTarget(r)}>
-                            Cancel Request
+                            Cancel Borrow Request
                           </Button>
                         )}
                         <Button variant="secondary" size="xs" type="button" icon={Eye} onClick={() => openDetails(r)}>
@@ -598,7 +598,7 @@ export default function BorrowRequests() {
                 ) : (
                   <>
                     {r.status === 'PENDING' && (
-                      <Button variant="danger" size="xs" type="button" icon={Ban} onClick={() => setCancelTarget(r)}>Cancel</Button>
+                      <Button variant="danger" size="xs" type="button" icon={Ban} onClick={() => setCancelTarget(r)}>Cancel Borrow Request</Button>
                     )}
                     <Button variant="secondary" size="xs" type="button" icon={Eye} onClick={() => openDetails(r)}>Details</Button>
                   </>
@@ -614,7 +614,7 @@ export default function BorrowRequests() {
               <Search className="h-5 w-5" />
             </div>
             <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">
-              {isStaff ? 'No borrow requests found' : 'No borrow requests yet'}
+              {isStaff ? 'No borrow requests yet.' : "You haven't sent any borrow requests yet."}
             </p>
             <p className="mt-1 max-w-md text-sm text-gray-500 dark:text-gray-400">
               {activeFilterCount > 0
@@ -662,7 +662,7 @@ export default function BorrowRequests() {
       >
         {infoLoading || !approveInfo ? (
           <div className="flex items-center justify-center py-12 text-sm text-gray-400">
-            <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Loading request details...
+            <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Loading request details…
           </div>
         ) : (
           <div className="space-y-4">
@@ -691,7 +691,7 @@ export default function BorrowRequests() {
                 <dd className="mt-0.5 text-sm font-medium text-gray-900 dark:text-gray-50">{approveInfo.membershipPlanName || '—'}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold text-gray-500">Borrow Date (Issue Date)</dt>
+                <dt className="text-xs font-semibold text-gray-500">Borrow Date</dt>
                 <dd className="mt-0.5 text-sm text-gray-800 dark:text-gray-100">{formatDate(approveInfo.borrowStartDate)}</dd>
               </div>
               <div>
@@ -743,7 +743,7 @@ export default function BorrowRequests() {
       {/* Reject modal */}
       <Modal
         open={!!rejectTarget}
-        title="Reject Borrow Request"
+        title="Reject this borrow request?"
         size="sm"
         onClose={() => setRejectTarget(null)}
         footer={
@@ -832,7 +832,7 @@ export default function BorrowRequests() {
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" type="button" onClick={() => setCancelTarget(null)}>Keep Request</Button>
             <Button variant="danger" type="button" icon={Ban} loading={cancelling} onClick={handleCancel}>
-              Cancel Request
+              Cancel Borrow Request
             </Button>
           </div>
         }

@@ -43,7 +43,7 @@ export default function Login() {
 
   useEffect(() => {
     if (searchParams.get('error')) {
-      toast.error(searchParams.get('error') === 'google_login_failed' ? 'Google login failed. Try again.' : 'Something went wrong during login')
+      toast.error(searchParams.get('error') === 'google_login_failed' ? "We couldn't sign you in with Google. Please try again." : "Something went wrong while signing you in. Please try again.")
     }
   }, [searchParams])
 

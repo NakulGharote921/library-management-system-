@@ -31,7 +31,9 @@ export default function Profile() {
       ? 'Active'
       : summary?.status === 'EXPIRING'
         ? 'Expiring'
-        : summary?.status || ''
+        : summary?.status === 'EXPIRED'
+          ? 'Expired'
+          : ''
 
   return (
     <div className="flex flex-col gap-6 animate-fadeIn">
@@ -51,7 +53,7 @@ export default function Profile() {
                 {user?.name || 'Member'}
               </h1>
               <span className="rounded-full bg-amber-400 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-950">
-                {role || 'Guest'}
+                {role === 'ADMIN' ? 'Admin' : role === 'MEMBER' ? 'Member' : 'Guest'}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium text-white/85 sm:text-base">
@@ -62,7 +64,7 @@ export default function Profile() {
               <span className="hidden h-1 w-1 rounded-full bg-white/50 sm:block" />
               <span className="flex items-center gap-2">
                 <Shield className="h-4 w-4 shrink-0" />
-                {role === 'ADMIN' ? 'Admin Role' : 'Member Role'}
+                {role === 'ADMIN' ? 'Administrator' : 'Member'}
               </span>
             </div>
           </div>
@@ -77,7 +79,7 @@ export default function Profile() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3 text-primary-700 dark:text-primary-300">
                   <Crown className="h-7 w-7" />
-                  <h2 className="text-xl font-bold sm:text-2xl">Current Plan</h2>
+                  <h2 className="text-xl font-bold sm:text-2xl">Your Membership</h2>
                 </div>
                 {summary ? (
                   <span className="flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
@@ -118,7 +120,7 @@ export default function Profile() {
                       </span>
                     </div>
                     <div className="flex flex-col gap-1 rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/50">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Books Allowed</span>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">Books You Can Borrow</span>
                       <span className="text-xl font-bold text-gray-900 dark:text-gray-50">{allowed}</span>
                     </div>
                     <div className="relative flex flex-col gap-1 overflow-hidden rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/50">

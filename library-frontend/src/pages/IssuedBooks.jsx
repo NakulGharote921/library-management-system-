@@ -20,6 +20,13 @@ const ADMIN_TABS = [
   { id: 'all', label: 'All' },
 ]
 
+const LOAN_STATUS_LABEL = {
+  ISSUED: 'Borrowed',
+  RETURNED: 'Returned',
+  OVERDUE: 'Overdue',
+  PENDING_RETURN_APPROVAL: 'Return Request Sent',
+}
+
 const canReturnLoan = (tab) => tab === 'active' || tab === 'overdue'
 
 function daysOverdue(due) {
@@ -132,7 +139,7 @@ export default function IssuedBooks() {
     setRequestingId(id)
     try {
       await issuedBookService.requestReturn(id)
-      toast.success('Return requested — awaiting administrator approval')
+      toast.success('Return request sent.')
       load()
     } catch (e) {
       toast.error(getApiErrorMessage(e))
@@ -176,7 +183,7 @@ export default function IssuedBooks() {
             loading={returningId === issue.id}
             onClick={() => handleReturn(issue.id)}
           >
-            {issue.returnRequestedAt ? 'Approve Return' : 'Return book'}
+            {issue.returnRequestedAt ? 'Approve Return' : 'Return Book'}
           </Button>
         </>
       )}
@@ -356,7 +363,7 @@ export default function IssuedBooks() {
         <td>${r.issueDate || '—'}</td>
         <td>${r.dueDate || '—'}</td>
         <td>${r.returnDate || '—'}</td>
-        <td>${r.issueStatus}</td>
+        <td>${LOAN_STATUS_LABEL[r.issueStatus] || r.issueStatus}</td>
       </tr>`,
       )
       .join('')
@@ -377,9 +384,9 @@ export default function IssuedBooks() {
 </head>
 <body>
   <h1>${title}</h1>
-  <p class="meta">Generated ${new Date().toLocaleString()} · ${filtered.length} record(s)</p>
+  <p class="meta">Generated ${new Date().toLocaleString()} · ${filtered.length} ${filtered.length === 1 ? 'loan' : 'loans'}</p>
   <table>
-    <thead><tr><th>Book</th><th>Member</th><th>Issue Date</th><th>Due Date</th><th>Return Date</th><th>Status</th></tr></thead>
+    <thead><tr><th>Book</th><th>Member</th><th>Borrowed On</th><th>Return By</th><th>Return Date</th><th>Status</th></tr></thead>
     <tbody>${rowsHtml}</tbody>
   </table>
 </body>
@@ -407,7 +414,7 @@ export default function IssuedBooks() {
             {isMember ? 'Issued Books' : 'Circulation history'}
           </h1>
           <p className="text-sm text-gray-500">
-            {isMember ? 'Your borrowed books and loan status.' : 'Track loans, returns, and exceptions in one ledger.'}
+            {isMember ? 'Your borrowed books and borrowing status.' : 'Track loans, returns, and exceptions in one ledger.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -496,9 +503,11 @@ export default function IssuedBooks() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center dark:border-gray-800 dark:bg-gray-900">
           <AlertTriangle className="h-10 w-10 text-amber-500" />
-          <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">No records</p>
+          <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">
+            {isMember ? "You don't have any borrowed books yet." : 'Nothing to show here yet.'}
+          </p>
           <p className="mt-1 text-sm text-gray-500">
-            {isMember ? "You haven't borrowed any books yet." : 'Switch tabs or relax filters to see more activity.'}
+            {isMember ? 'Books you borrow will appear here.' : 'Switch tabs or relax filters to see more activity.'}
           </p>
           {isMember ? (
             <Button type="button" icon={BookOpen} className="mt-6" onClick={() => navigate('/books')}>
@@ -547,7 +556,7 @@ export default function IssuedBooks() {
                 <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Book</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Member</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Dates</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Status</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Borrowing Status</th>
                 <th className="px-4 py-3 text-right font-semibold text-gray-600 dark:text-gray-400">Actions</th>
               </tr>
             </thead>
@@ -571,7 +580,7 @@ export default function IssuedBooks() {
                             type="checkbox"
                             checked={selected.has(issue.id)}
                             onChange={() => toggleSelect(issue.id)}
-                            aria-label={`Select ${issue.bookTitle || 'record'}`}
+                            aria-label={`Select ${issue.bookTitle || 'loan'}`}
                             className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                           />
                         </td>
@@ -606,8 +615,8 @@ export default function IssuedBooks() {
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
-                        <p>Issued {issue.issueDate}</p>
-                        <p>Due {issue.dueDate}</p>
+                        <p>Borrowed On {issue.issueDate}</p>
+                        <p>Return By {issue.dueDate}</p>
                         {issue.returnDate ? <p className="text-emerald-600">Returned {issue.returnDate}</p> : null}
                         {issue.returnRequestedAt && !issue.returnDate ? (
                           <p className="font-semibold text-amber-600">Return requested {issue.returnRequestedAt}</p>
@@ -622,7 +631,7 @@ export default function IssuedBooks() {
                               : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-100'
                           }`}
                         >
-                          {issue.issueStatus}
+                          {LOAN_STATUS_LABEL[issue.issueStatus] || issue.issueStatus}
                         </span>
                         {issue.returnRequestedAt && issue.issueStatus === 'ISSUED' ? (
                           <span className="ml-1.5 inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
@@ -682,7 +691,7 @@ export default function IssuedBooks() {
                 <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Book</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Member</th>
                 <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Dates</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Status</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-400">Borrowing Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </tfoot>
@@ -729,7 +738,7 @@ export default function IssuedBooks() {
                               : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-100'
                           }`}
                         >
-                          {issue.issueStatus}
+                          {LOAN_STATUS_LABEL[issue.issueStatus] || issue.issueStatus}
                         </span>
                         {issue.returnRequestedAt && issue.issueStatus === 'ISSUED' ? (
                           <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
@@ -754,8 +763,8 @@ export default function IssuedBooks() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-400">Dates</p>
-                      <p className="text-gray-600 dark:text-gray-300">Issued {issue.issueDate}</p>
-                      <p className="text-gray-600 dark:text-gray-300">Due {issue.dueDate}</p>
+                      <p className="text-gray-600 dark:text-gray-300">Borrowed On {issue.issueDate}</p>
+                      <p className="text-gray-600 dark:text-gray-300">Return By {issue.dueDate}</p>
                     </div>
                   </div>
                   {issue.returnDate ? (

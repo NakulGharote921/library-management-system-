@@ -29,8 +29,8 @@ export default function About() {
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <BookOpen className="h-8 w-8 text-primary-600" />
-          <h3 className="mt-3 font-semibold text-gray-900 dark:text-gray-50">Issue & Returns</h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Streamlined book issuance and return workflows</p>
+          <h3 className="mt-3 font-semibold text-gray-900 dark:text-gray-50">Borrow & Returns</h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Easy borrowing and returns for members</p>
         </div>
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
           <Shield className="h-8 w-8 text-primary-600" />

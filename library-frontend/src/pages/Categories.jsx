@@ -54,10 +54,10 @@ export default function Categories() {
     try {
       if (editingCat) {
         await updateCategory(editingCat.id, form)
-        toast.success(`Category "${name}" updated`)
+        toast.success(`Category "${name}" updated successfully.`)
       } else {
         await createCategory(form)
-        toast.success(`Category "${name}" added`)
+        toast.success(`Category "${name}" added successfully.`)
       }
       setAddOpen(false)
     } catch (e) {
@@ -72,7 +72,7 @@ export default function Categories() {
     setDeleting(true)
     try {
       await deleteCategory(deleteTarget.id)
-      toast.success(`Category "${deleteTarget.name}" deleted`)
+      toast.success(`Category "${deleteTarget.name}" removed.`)
       setDeleteTarget(null)
     } catch (e) {
       toast.error(getApiErrorMessage(e))
@@ -116,7 +116,7 @@ export default function Categories() {
       ) : categories.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center dark:border-gray-800 dark:bg-gray-900">
           <FolderOpen className="h-10 w-10 text-gray-400" />
-          <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">No Categories Yet</p>
+          <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">No categories yet</p>
           <p className="mt-1 max-w-sm text-sm text-gray-500">
             {isAdmin ? 'Add your first category to organize the catalog.' : 'Categories will appear here once books are added.'}
           </p>
@@ -156,7 +156,7 @@ export default function Categories() {
                       <button
                         type="button"
                         onClick={() => setDeleteTarget(cat)}
-                        aria-label={`Delete ${cat.name}`}
+                        aria-label={`Remove ${cat.name}`}
                         className="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -176,7 +176,7 @@ export default function Categories() {
 
       <Modal
         open={!!deleteTarget}
-        title="Delete Category"
+        title="Remove Category"
         size="sm"
         onClose={() => !deleting && setDeleteTarget(null)}
         footer={
@@ -185,13 +185,13 @@ export default function Categories() {
               Cancel
             </Button>
             <Button variant="danger" type="button" loading={deleting} onClick={handleDeleteCategory}>
-              Delete
+              Remove
             </Button>
           </div>
         }
       >
         <p className="text-sm text-gray-600 dark:text-gray-300">
-          Are you sure you want to delete the category <strong>{deleteTarget?.name}</strong>? This removes the category entry (books keep their category name).
+          Are you sure you want to remove the category <strong>{deleteTarget?.name}</strong>? Books in this category will keep their category name.
         </p>
       </Modal>
 
@@ -206,7 +206,7 @@ export default function Categories() {
               Cancel
             </Button>
             <Button type="button" loading={saving} disabled={!form.name.trim()} onClick={handleSave}>
-              {editingCat ? 'Save Changes' : 'Add'}
+              {editingCat ? 'Save Changes' : 'Add Category'}
             </Button>
           </div>
         }

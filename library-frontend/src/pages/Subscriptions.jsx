@@ -17,6 +17,12 @@ const emptyPlan = {
   displayOrder: 0, status: 'ACTIVE', features: '',
 }
 
+const STATUS_LABEL = {
+  ACTIVE: 'Active',
+  INACTIVE: 'Inactive',
+  RETIRED: 'Retired',
+}
+
 function CheckField({ id, checked, onChange, label }) {
   return (
     <div className="mb-4 flex items-center">
@@ -123,7 +129,7 @@ export default function Subscriptions() {
       return
     }
     if (editing && !editing.id) {
-      toast.error('Invalid membership plan ID')
+      toast.error('Something went wrong. Please try again.')
       return
     }
     setSaving(true)
@@ -146,10 +152,10 @@ export default function Subscriptions() {
       }
       if (editing) {
         await subscriptionService.updatePlan(editing.id, payload)
-        toast.success('Membership plan updated successfully')
+        toast.success('Plan updated successfully.')
       } else {
         await subscriptionService.createPlan(payload)
-        toast.success('Membership plan created successfully')
+        toast.success('Plan added successfully.')
       }
       setModalOpen(false)
       load()
@@ -229,7 +235,7 @@ export default function Subscriptions() {
   const handlePurchase = async (planId) => {
     try {
       const sub = await userSubscriptionService.purchase(planId)
-      toast.success(`Purchased ${sub.plan?.name || 'plan'}`)
+      toast.success(`${sub.plan?.name || 'plan'} activated! You can now borrow books.`)
       load()
     } catch (e) {
       toast.error(getApiErrorMessage(e))
@@ -260,7 +266,7 @@ export default function Subscriptions() {
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" type="button" icon={RefreshCw} onClick={load} loading={loading}>Refresh</Button>
-          {isAdmin && <Button icon={Plus} onClick={openCreate}>Add Plan</Button>}
+          {isAdmin && <Button icon={Plus} onClick={openCreate}>Add Membership Plan</Button>}
         </div>
       </div>
 
@@ -271,8 +277,8 @@ export default function Subscriptions() {
       ) : visiblePlans.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-800 dark:bg-gray-900">
           <Award className="h-10 w-10 text-gray-400" />
-          <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">No plans defined</p>
-          {isAdmin && <Button className="mt-4" icon={Plus} onClick={openCreate}>Create first plan</Button>}
+          <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">No membership plans yet.</p>
+          {isAdmin && <Button className="mt-4" icon={Plus} onClick={openCreate}>Add Membership Plan</Button>}
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -289,7 +295,7 @@ export default function Subscriptions() {
                           Most Popular
                         </span>
                       )}
-                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusColor(plan.status)}`}>{plan.status}</span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${statusColor(plan.status)}`}>{STATUS_LABEL[plan.status] || plan.status}</span>
                     </div>
                     {isAdmin && (
                       <div className="flex shrink-0 items-center gap-1.5">
@@ -335,12 +341,12 @@ export default function Subscriptions() {
 
                   <div className="mt-auto">
                     {!isAdmin && plan.status === 'ACTIVE' ? (
-                      <Button className="w-full" onClick={() => handlePurchase(plan.id)}>Subscribe</Button>
+                      <Button className="w-full" onClick={() => handlePurchase(plan.id)}>Choose This Plan</Button>
                     ) : (
                       <div className="flex items-center justify-between border-t border-gray-100 pt-4 text-xs text-gray-400 dark:border-gray-800">
                         <span className="flex items-center gap-1.5">
                           <span className={`h-2 w-2 rounded-full ${statusDot(plan.status)}`} />
-                          <span className="font-medium uppercase tracking-wide">{plan.status}</span>
+                          <span className="font-medium tracking-wide">{STATUS_LABEL[plan.status] || plan.status}</span>
                         </span>
                         {plan.createdAt && (
                           <span>
@@ -389,7 +395,7 @@ export default function Subscriptions() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Subscription Plan' : 'Create Subscription Plan'}
+        title={editing ? 'Edit Membership Plan' : 'Add Membership Plan'}
         size="xl"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -397,7 +403,7 @@ export default function Subscriptions() {
               Cancel
             </Button>
             <Button type="button" loading={saving} onClick={save}>
-              {editing ? 'Update Plan' : 'Save Plan'}
+              {editing ? 'Save Changes' : 'Add Membership Plan'}
             </Button>
           </div>
         }

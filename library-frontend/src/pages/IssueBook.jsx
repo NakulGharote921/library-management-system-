@@ -20,6 +20,14 @@ function toDateInputValue(date) {
   return date.toISOString().split('T')[0]
 }
 
+function fmtDate(value) {
+  if (!value) return '—'
+  const d = new Date(`${value}T00:00:00`)
+  return Number.isNaN(d.getTime())
+    ? value
+    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 export default function IssueBook() {
   const [step, setStep] = useState(1)
   const [stepperKey, setStepperKey] = useState(0)
@@ -79,13 +87,13 @@ export default function IssueBook() {
 
   const submit = async () => {
     if (!selectedUser || !selectedBook) {
-      toast.error('Select both a user and a book')
+      toast.error('Select both a member and a book')
       return
     }
     setSubmitting(true)
     try {
       await issuedBookService.issue(selectedBook.id, selectedUser.id, toDateInputValue(issueDate), toDateInputValue(returnDate))
-      toast.success('Book issued successfully')
+      toast.success('Book borrowed successfully')
       window.dispatchEvent(new CustomEvent('dashboard:refresh'))
       setDone(true)
       const [b, allIssues] = await Promise.all([bookService.getAvailable(), issuedBookService.getAll()])
@@ -121,16 +129,16 @@ export default function IssueBook() {
   return (
     <div className="mx-auto max-w-5xl space-y-8 animate-fadeIn">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Issue a book</h1>
-        <p className="text-sm text-gray-500">Select user, pick a book, then set dates.</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Borrow a Book</h1>
+        <p className="text-sm text-gray-500">Select a member, pick a book, then set the dates.</p>
       </div>
 
       <div className="rounded-[22px] bg-white shadow-xl dark:bg-gray-950">
         {done ? (
             <div className="flex flex-col items-center justify-center gap-3 py-10 text-center animate-scaleIn">
               <CheckCircle2 className="h-14 w-14 text-emerald-500" />
-              <p className="text-lg font-semibold text-gray-900 dark:text-gray-50">Issue recorded</p>
-              <p className="text-sm text-gray-500">The catalog availability has been updated automatically.</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-50">Book borrowed</p>
+              <p className="text-sm text-gray-500">The book has been marked as borrowed and updated in the catalog.</p>
             </div>
           ) : (
             <Stepper
@@ -140,7 +148,7 @@ export default function IssueBook() {
               onStepChange={setStep}
               onFinalStepCompleted={submit}
               stepCircleContainerClassName="!max-w-full bg-white !rounded-[22px] shadow-xl dark:bg-gray-950"
-              completeButtonText="Issue book"
+              completeButtonText="Borrow Book"
               nextButtonText="Continue"
               backButtonText="Back"
               nextButtonProps={{
@@ -151,14 +159,14 @@ export default function IssueBook() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
                     <User className="h-4 w-4 text-primary-600" />
-                    Select user
+                    Select member
                   </div>
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                     <input
                       value={userQuery}
                       onChange={(e) => setUserQuery(e.target.value)}
-                      placeholder="Search users..."
+                      placeholder="Search members..."
                       className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-3 text-sm focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-gray-800 dark:bg-gray-900"
                     />
                   </div>
@@ -232,7 +240,7 @@ export default function IssueBook() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-4">
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-gray-500">Issue date</label>
+                        <label className="mb-1.5 block text-xs font-medium text-gray-500">Borrowed On</label>
                         <Datepicker value={issueDate} onChange={setIssueDate} />
                       </div>
                       <div className="flex gap-2">
@@ -246,7 +254,7 @@ export default function IssueBook() {
                     </div>
                     <div className="flex flex-col gap-4">
                       <div>
-                        <label className="mb-1.5 block text-xs font-medium text-gray-500">Return date</label>
+                        <label className="mb-1.5 block text-xs font-medium text-gray-500">Return By</label>
                         <Datepicker value={returnDate} onChange={setReturnDate} />
                       </div>
                       <div className="flex gap-2">
@@ -269,7 +277,7 @@ export default function IssueBook() {
         <div className="grid gap-4 md:grid-cols-2">
           {selectedUser ? (
             <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">User</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Member</p>
               <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-50">{selectedUser.name}</p>
               <p className="text-sm text-gray-500">{selectedUser.email}</p>
             </div>
@@ -280,15 +288,15 @@ export default function IssueBook() {
               <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-50">{selectedBook.title}</p>
               <p className="text-sm text-gray-500">{selectedBook.author}</p>
               <p className="mt-3 text-xs text-gray-500">
-                Issue {issueDate ? toDateInputValue(issueDate) : '—'} · Due {returnDate ? toDateInputValue(returnDate) : '—'}
+                Borrowed {fmtDate(issueDate ? toDateInputValue(issueDate) : '')} · Return By {fmtDate(returnDate ? toDateInputValue(returnDate) : '')}
               </p>
             </div>
           ) : null}
         </div>
       ) : null}
       <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Recent issues</h2>
-        <p className="text-sm text-gray-500">Latest circulation events across the library.</p>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Recently Borrowed</h2>
+        <p className="text-sm text-gray-500">Latest books borrowed from the library.</p>
         <ul className="mt-4 space-y-3">
           {recent.map((issue) => (
             <li key={issue.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50/70 px-4 py-3 text-sm dark:border-gray-800 dark:bg-gray-800/40">
@@ -296,10 +304,10 @@ export default function IssueBook() {
                 <p className="font-semibold text-gray-900 dark:text-gray-50">{issue.bookTitle || issue.book?.title}</p>
                 <p className="text-xs text-gray-500">{issue.memberName || issue.user?.name}</p>
               </div>
-              <span className="text-xs text-gray-500">{issue.issueDate}</span>
+              <span className="text-xs text-gray-500">{fmtDate(issue.issueDate)}</span>
             </li>
           ))}
-          {recent.length === 0 ? <p className="text-sm text-gray-500">No issues yet.</p> : null}
+          {recent.length === 0 ? <p className="text-sm text-gray-500">No books borrowed yet.</p> : null}
         </ul>
       </section>
     </div>

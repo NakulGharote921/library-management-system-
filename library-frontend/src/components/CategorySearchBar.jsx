@@ -86,20 +86,20 @@ export default function CategorySearchBar({
             {loading ? (
               <div className="flex h-20 flex-col items-center justify-center gap-2 text-gray-400">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="text-xs font-medium">Loading categories...</span>
+                <span className="text-xs font-medium">Loading categories…</span>
               </div>
             ) : error ? (
               <div className="flex h-20 flex-col items-center justify-center gap-2 px-2 text-center">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-red-500">
-                  <AlertTriangle className="h-4 w-4" /> Failed to load categories
+                  <AlertTriangle className="h-4 w-4" /> We couldn&apos;t load categories
                 </span>
                 {onRetry && (
                   <button
                     type="button"
                     onClick={() => { onRetry(); setOpen(true) }}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700"
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 transition hover:bg-gray-100 dark:border-gray-200 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
-                    <RefreshCw className="h-3 w-3" /> Retry
+                    <RefreshCw className="h-3 w-3" /> Try Again
                   </button>
                 )}
               </div>

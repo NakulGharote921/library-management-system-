@@ -25,6 +25,12 @@ import { CardSkeleton } from '../components/PageSkeleton.jsx'
 import { dashboardService, adminDashboardService, getApiErrorMessage, userSubscriptionService } from '../services/api.js'
 import { selectUser, selectUserRole } from '../store/authSlice.js'
 
+const ISSUE_STATUS_LABEL = {
+  RETURNED: 'Returned',
+  BORROWED: 'Borrowing',
+  OVERDUE: 'Overdue',
+}
+
 function GuestHome() {
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -160,10 +166,10 @@ function MemberDashboard({ stats, navigate, summary }) {
             </div>
           </div>
         </div>
-        <StatsCard title="Active Loans" value={stats?.activeIssues ?? 0} icon={() => <i className="fi fi-sr-book-bookmark text-2xl leading-none" aria-hidden />} color="blue" trend="Currently borrowed" />
-        <StatsCard title="Due Soon" value={stats?.dueSoon ?? 0} icon={Clock} color="amber" trend="Return within 3 days" />
+        <StatsCard title="Books You're Borrowing" value={stats?.activeIssues ?? 0} icon={() => <i className="fi fi-sr-book-bookmark text-2xl leading-none" aria-hidden />} color="blue" trend="Currently borrowed" />
+        <StatsCard title="Books Due Soon" value={stats?.dueSoon ?? 0} icon={Clock} color="amber" trend="Return within 3 days" />
         <StatsCard title="Reservations" value={stats?.reservations ?? 0} icon={CalendarClock} color="violet" trend="Pending pickups" />
-        <StatsCard title="Outstanding Fines" value={stats?.outstandingFines ?? 0} icon={DollarSign} color="rose" trend="Overdue charges" />
+        <StatsCard title="Amount Due" value={stats?.outstandingFines ?? 0} icon={DollarSign} color="rose" trend="Overdue charges" />
       </section>
       <section>
         <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-50">Quick Actions</h2>
@@ -300,7 +306,7 @@ export default function Dashboard() {
                   View Analytics
                 </Button>
                 <Button variant="secondary" className="!border-white/40 !bg-transparent !text-white hover:!bg-white/10" icon={UserPlus} type="button" onClick={() => navigate('/users')}>
-                  Add User
+                  Add Member
                 </Button>
               </>
             )}
@@ -320,7 +326,7 @@ export default function Dashboard() {
         <section>
           <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Quick actions</h2>
-            <p className="text-sm text-gray-500">Shortcuts to frequent workflows</p>
+            <p className="text-sm text-gray-500">Shortcuts for common tasks</p>
             <div className="mt-4 space-y-3">
               {role === 'ADMIN' ? (
                 <>
@@ -328,7 +334,7 @@ export default function Dashboard() {
                     <span className="inline-flex items-center gap-2"><Library className="h-4 w-4 text-primary-600" /> Add Book</span><ArrowRight className="h-4 w-4 text-gray-400" />
                   </button>
                   <button type="button" onClick={() => navigate('/users')} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-primary-200 hover:bg-white hover:shadow-md dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-100 dark:hover:bg-gray-800">
-                    <span className="inline-flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary-600" /> Add User</span><ArrowRight className="h-4 w-4 text-gray-400" />
+                    <span className="inline-flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary-600" /> Add Member</span><ArrowRight className="h-4 w-4 text-gray-400" />
                   </button>
                   <button type="button" onClick={() => navigate('/categories')} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-primary-200 hover:bg-white hover:shadow-md dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-100 dark:hover:bg-gray-800">
                     <span className="inline-flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary-600" /> Create Category</span><ArrowRight className="h-4 w-4 text-gray-400" />
@@ -340,13 +346,13 @@ export default function Dashboard() {
               ) : (
                 <>
                   <button type="button" onClick={() => navigate('/issue')} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-primary-200 hover:bg-white hover:shadow-md dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-100 dark:hover:bg-gray-800">
-                    <span className="inline-flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary-600" /> Issue book</span><ArrowRight className="h-4 w-4 text-gray-400" />
+                    <span className="inline-flex items-center gap-2"><BookOpen className="h-4 w-4 text-primary-600" /> Borrow book</span><ArrowRight className="h-4 w-4 text-gray-400" />
                   </button>
                   <button type="button" onClick={() => navigate('/books')} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-primary-200 hover:bg-white hover:shadow-md dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-100 dark:hover:bg-gray-800">
                     <span className="inline-flex items-center gap-2"><Library className="h-4 w-4 text-primary-600" /> Add book</span><ArrowRight className="h-4 w-4 text-gray-400" />
                   </button>
                   <button type="button" onClick={() => navigate('/users')} className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-primary-200 hover:bg-white hover:shadow-md dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-100 dark:hover:bg-gray-800">
-                    <span className="inline-flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary-600" /> Add user</span><ArrowRight className="h-4 w-4 text-gray-400" />
+                    <span className="inline-flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary-600" /> Add member</span><ArrowRight className="h-4 w-4 text-gray-400" />
                   </button>
                 </>
               )}
@@ -359,7 +365,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">Recent activity</h2>
-            <p className="text-sm text-gray-500">Latest five circulation events</p>
+            <p className="text-sm text-gray-500">Latest five borrowing events</p>
           </div>
         </div>
         <ol className="mt-6 space-y-4">
@@ -389,13 +395,13 @@ export default function Dashboard() {
                       : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-100'
                   }`}
                 >
-                  {issue.status}
+                  {ISSUE_STATUS_LABEL[issue.status] || issue.status}
                 </span>
               </div>
             </li>
           ))}
           {(!stats?.recentIssues || stats.recentIssues.length === 0) && (
-            <p className="text-sm text-gray-500">No recent issues to display.</p>
+            <p className="text-sm text-gray-500">No recent activity yet.</p>
           )}
         </ol>
       </section>

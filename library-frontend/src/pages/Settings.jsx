@@ -58,7 +58,7 @@ export default function Settings() {
               <input defaultValue="14" type="number" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-gray-800 dark:bg-gray-900" />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-500">Fine per overdue day ($)</label>
+              <label className="mb-1 block text-xs font-semibold text-gray-500">Fine per overdue day (₹)</label>
               <input defaultValue="0.50" type="number" step="0.01" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-gray-800 dark:bg-gray-900" />
             </div>
           </div>

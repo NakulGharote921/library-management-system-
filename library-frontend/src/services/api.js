@@ -34,19 +34,54 @@ api.interceptors.response.use(
   },
 )
 
+function friendlyBackendMessage(message) {
+  if (!message) return ''
+  const lower = message.toLowerCase()
+
+  if (lower.includes('user not found')) return "We couldn't find an account with this email."
+  if (lower.includes('book not found')) return "We couldn't find this book."
+  if (lower.includes('plan not found')) return "We couldn't find this membership plan."
+  if (lower.includes('invalid email or password')) return 'Email or password is incorrect. Please try again.'
+  if (lower.includes('email already registered')) return 'An account with this email already exists. Please sign in instead.'
+  if (lower.includes('resource not found')) return "We couldn't find what you were looking for."
+  if (lower.includes('invalid request body format')) return 'Please check your details and try again.'
+  if (lower.includes('invalid date') || lower.includes('date/time')) return 'Please choose a valid date.'
+  if (lower.includes('duplicate key') || lower.includes('already exists')) {
+    return 'It looks like this already exists. Please try something else.'
+  }
+  if (lower.includes('cashfree') && (lower.includes('not configured') || lower.includes('unreachable'))) {
+    return "We're having trouble connecting to our payment partner. Please try again in a moment."
+  }
+  return message
+}
+
 export function getApiErrorMessage(error) {
   if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
-    return `Cannot reach the API at ${apiBaseUrl()}. Make sure the backend is running.`
+    return "We're having trouble connecting. Please check your internet connection and try again."
   }
+  const status = error?.response?.status
   const data = error?.response?.data
-  if (!data) return error?.message || 'Something went wrong'
-  if (data.fieldErrors && typeof data.fieldErrors === 'object') {
-    const vals = Object.values(data.fieldErrors).filter(Boolean)
-    if (vals.length) return vals.join(' · ')
+
+  if (status === 401) return 'Email or password is incorrect. Please try again.'
+  if (status === 403) return "You don't have permission to perform this action."
+  if (status === 500) return 'Something went wrong on our side. Please try again in a moment.'
+  if (status === 404 && !data?.message) return "We couldn't find what you were looking for."
+
+  if (data && typeof data === 'object') {
+    if (data.fieldErrors && typeof data.fieldErrors === 'object') {
+      const vals = Object.values(data.fieldErrors).filter(Boolean)
+      if (vals.length) return vals.join(' · ')
+    }
+    if (typeof data.message === 'string' && data.message) {
+      return friendlyBackendMessage(data.message)
+    }
+    if (Array.isArray(data.details) && data.details.length) {
+      return data.details
+        .map((d) => friendlyBackendMessage(String(d).split(': ').pop() || d))
+        .join(' · ')
+    }
   }
-  if (typeof data.message === 'string' && data.message) return data.message
-  if (Array.isArray(data.details) && data.details.length) return data.details.join(' · ')
-  return data.error || error.message || 'Request failed'
+  return error?.message || 'Something went wrong. Please try again.'
 }
 
 export const bookService = {

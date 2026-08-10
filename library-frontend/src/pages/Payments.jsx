@@ -40,8 +40,10 @@ function StatusIcon({ status }) {
 function StatusLabel({ status }) {
   if (status === 'SUCCESS' || status === 'PAID') return 'Paid'
   if (status === 'REFUNDED') return 'Refunded'
-  if (status === 'FAILED') return 'Failed'
+  if (status === 'FAILED') return 'Payment Failed'
   if (status === 'PENDING' || status === 'UNPAID') return 'Pending'
+  if (status === 'WAIVED') return 'Waived'
+  if (status === 'CANCELLED') return 'Cancelled'
   return status
 }
 
@@ -130,6 +132,12 @@ export default function Payments() {
     return result
   }, [transactions, tab, typeFilter])
 
+  const emptyTitle = useMemo(() => {
+    if (typeFilter === 'SUBSCRIPTION') return "You haven't made any membership payments yet."
+    if (typeFilter === 'FINE') return 'You have no fines to pay.'
+    return 'No payments to show yet.'
+  }, [typeFilter])
+
   const handlePrint = () => window.print()
 
   const handlePdf = () => window.print()
@@ -185,7 +193,7 @@ export default function Payments() {
         order = await paymentService.createOrder(fineId)
       } catch (err) {
         console.debug('Order creation failed for fine', fineId, err)
-        showErrorOnce('Unable to create payment order. Please try again.')
+        showErrorOnce("We couldn't complete your payment. Please try again.")
         finish()
         return
       }
@@ -199,7 +207,7 @@ export default function Payments() {
 
       if (!order.paymentSessionId) {
         console.warn('Cashfree order missing paymentSessionId', order)
-        showErrorOnce('Unable to start payment. Please try again.')
+        showErrorOnce("We couldn't complete your payment. Please try again.")
         finish()
         return
       }
@@ -209,7 +217,7 @@ export default function Payments() {
         cashfree = window.Cashfree({ mode: import.meta.env.VITE_CASHFREE_MODE || 'sandbox' })
       } catch (err) {
         console.debug('Cashfree SDK could not be initialized', err)
-        showErrorOnce('Payment could not be started. Please try again.')
+        showErrorOnce("We couldn't complete your payment. Please try again.")
         finish()
         return
       }
@@ -221,11 +229,11 @@ export default function Payments() {
           const cfOrderId = data?.order?.orderId || order.orderId
           const cfPaymentId = data?.payment?.cfPaymentId
           await paymentService.verify(cfOrderId, cfPaymentId)
-          toast.success('Fine paid successfully')
+          toast.success('Payment successful!')
           setTimeout(() => window.location.replace('/payments?payment=success'), 900)
         } catch (err) {
           console.debug('Payment verification failed for fine', fineId, err)
-          showErrorOnce('Payment verification failed. Please contact support.')
+          showErrorOnce("We couldn't complete your payment. Please contact support.")
         } finally {
           finish()
           load(true)
@@ -241,7 +249,7 @@ export default function Payments() {
           const failedOrderId = data?.order?.orderId || order.orderId
           paymentService.markFailed(failedOrderId).catch(() => {})
           console.debug('Cashfree payment failed for fine', fineId, data)
-          showErrorOnce('Payment failed. Please try again.')
+          showErrorOnce("We couldn't complete your payment. Please try again.")
           finish()
           load(true)
         },
@@ -253,7 +261,7 @@ export default function Payments() {
         },
       })
     } catch {
-      showErrorOnce('Payment could not be started. Please try again.')
+      showErrorOnce("We couldn't complete your payment. Please try again.")
       finish()
     }
   }
@@ -334,8 +342,8 @@ export default function Payments() {
       ) : visibleTransactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center dark:border-gray-800 dark:bg-gray-900">
           <CreditCard className="h-10 w-10 text-gray-400" />
-          <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">No payments found</p>
-          <p className="mt-1 text-sm text-gray-500">All transactions will appear here.</p>
+          <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">{emptyTitle}</p>
+          <p className="mt-1 text-sm text-gray-500">All your payments will appear here.</p>
         </div>
       ) : (
         <>
@@ -372,7 +380,7 @@ export default function Payments() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900 dark:text-gray-50">{txn.label || txn.description || `${txn.paymentType || txn.type} Payment`}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-50">{txn.label || txn.description || 'Payment'}</p>
                       {txn.detail && <p className="text-xs text-gray-500">{txn.detail}</p>}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-gray-900 dark:text-gray-50">
@@ -404,7 +412,7 @@ export default function Payments() {
               <div key={txn.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-900 dark:text-gray-50">{txn.label || txn.description || `${txn.paymentType || txn.type} Payment`}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-50">{txn.label || txn.description || 'Payment'}</p>
                     {txn.detail && <p className="mt-0.5 text-xs text-gray-500">{txn.detail}</p>}
                   </div>
                   <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor}`}>

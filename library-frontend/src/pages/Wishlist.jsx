@@ -121,7 +121,7 @@ export default function Wishlist() {
     setActionId(`reserve-${bookId}`)
     try {
       await reserveBook(bookId)
-      toast.success('Book reserved!')
+      toast.success('Your book has been reserved successfully.')
       load()
     } catch (e) {
       toast.error(getApiErrorMessage(e))
@@ -135,7 +135,7 @@ export default function Wishlist() {
     try {
       await wishlistService.remove(bookId)
       setItems((prev) => prev.filter((i) => i.book.id !== bookId))
-      toast.success('Removed from wishlist')
+      toast.success('Removed from your wishlist')
     } catch (e) {
       toast.error(getApiErrorMessage(e))
     } finally {
@@ -157,7 +157,7 @@ export default function Wishlist() {
     setActionId(`notify-${bookId}`)
     try {
       await wishlistService.toggleNotify(bookId, !current)
-      toast.success(current ? 'Notifications disabled' : 'Notifications enabled')
+      toast.success(current ? "You'll no longer be notified about this book." : "We'll notify you when this book becomes available.")
       load()
     } catch (e) {
       toast.error(getApiErrorMessage(e))
@@ -486,7 +486,7 @@ export default function Wishlist() {
                       type="button"
                       onClick={() => handleRemove(item.book.id)}
                       className="rounded-md p-1.5 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950"
-                      title="Remove"
+                      title="Remove from wishlist"
                     >
                       {isAction('remove') ? (
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -534,7 +534,7 @@ export default function Wishlist() {
                         onClick={() => handleSaveNotes(item.book.id)}
                         className="rounded-md bg-primary-600 px-2 py-1 text-xs text-white hover:bg-primary-700"
                       >
-                        Save
+                        Save Notes
                       </button>
                       <button
                         type="button"
@@ -592,7 +592,7 @@ export default function Wishlist() {
                     variant="secondary" size="sm" type="button" icon={Eye}
                     onClick={() => navigate(`/books/${item.book.id}`)}
                   >
-                    Details
+                    View Details
                   </Button>
                 </div>
               </div>

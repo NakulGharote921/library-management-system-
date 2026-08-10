@@ -150,13 +150,13 @@ export default function Books() {
 
   const handleBorrowRequest = async (bookId, startDate, dueDate) => {
     if (!startDate || !dueDate) {
-      toast.error('Please choose a borrow start date first.')
+      toast.error('Please choose a valid start date.')
       return
     }
     setBorrowingId(bookId)
     try {
       await borrowRequestService.create(bookId, startDate, dueDate)
-      toast.success('Your borrow request has been submitted successfully and is awaiting administrator approval.')
+      toast.success('Your borrow request has been sent to the library.')
       load()
       loadBorrowRequests()
       navigate('/borrow-requests')
@@ -173,11 +173,11 @@ export default function Books() {
       if (wishlistedIds.has(bookId)) {
         await wishlistService.remove(bookId)
         setWishlistedIds((prev) => { const next = new Set(prev); next.delete(bookId); return next })
-        toast.success('Removed from wishlist')
+        toast.success('Removed from your wishlist')
       } else {
         await wishlistService.add(bookId)
         setWishlistedIds((prev) => new Set(prev).add(bookId))
-        toast.success('Added to wishlist')
+        toast.success('Added to your wishlist')
       }
     } catch (e) {
       toast.error(getApiErrorMessage(e))
@@ -611,13 +611,13 @@ export default function Books() {
     <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Books</h1>
-          <p className="text-sm text-gray-500">{isMember ? 'Browse and borrow from the catalog' : 'Manage catalog, availability, and metadata.'}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">{isMember ? 'Browse Books' : 'Books'}</h1>
+          <p className="text-sm text-gray-500">{isMember ? 'Browse and borrow from the catalog' : 'Manage your book collection.'}</p>
         </div>
         {canManage && (
           <div className="flex items-center gap-2">
             <Button icon={Plus} onClick={openCreate}>
-              Add book
+              Add Book
             </Button>
             <Link to="/categories" className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
               Categories
@@ -642,7 +642,7 @@ export default function Books() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-lg font-bold text-gray-900 dark:text-gray-50">{catalogStats.availableCopies}</p>
-            <p className="truncate text-xs text-gray-500">Available Copies</p>
+            <p className="truncate text-xs text-gray-500">Available Now</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -651,7 +651,7 @@ export default function Books() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-lg font-bold text-gray-900 dark:text-gray-50">{catalogStats.borrowedCopies}</p>
-            <p className="truncate text-xs text-gray-500">Borrowed Copies</p>
+            <p className="truncate text-xs text-gray-500">Borrowed</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -857,7 +857,7 @@ export default function Books() {
                     Edit
                   </Button>
                   <Button variant="danger" size="sm" type="button" icon={Trash2} onClick={() => setDeleteTarget(row)}>
-                    Delete
+                    Remove
                   </Button>
                 </>
               )}
@@ -867,8 +867,8 @@ export default function Books() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center dark:border-gray-800 dark:bg-gray-900">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-3xl dark:bg-gray-800">🔍</div>
-          <p className="mt-4 text-lg font-semibold text-gray-800 dark:text-gray-100">No Books Found</p>
-          <p className="mt-1 text-sm text-gray-500 max-w-sm">Try adjusting your search or filters.</p>
+          <p className="mt-4 text-lg font-semibold text-gray-800 dark:text-gray-100">We couldn&apos;t find any books matching your search.</p>
+          <p className="mt-1 text-sm text-gray-500 max-w-sm">Try a different title, author, or filter.</p>
         </div>
       ) : (
         <>
@@ -936,7 +936,7 @@ export default function Books() {
                           loading={wishlistLoadingId === book.id}
                           onClick={() => handleToggleWishlist(book.id)}
                         >
-                          {wishlistedIds.has(book.id) ? 'Remove Wishlist' : 'Wishlist'}
+                          {wishlistedIds.has(book.id) ? 'Remove from Wishlist' : 'Wishlist'}
                         </Button>
                       )}
                       {(() => {
@@ -946,7 +946,7 @@ export default function Books() {
                           return (
                             <div className="flex-1 space-y-1.5">
                               <div className="rounded-xl bg-emerald-50 px-3 py-1.5 text-center text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                                <span className="flex items-center justify-center gap-1"><CheckCircle className="h-3 w-3" /> Ready for Pickup</span>
+                                <span className="flex items-center justify-center gap-1"><CheckCircle className="h-3 w-3" /> Ready to Borrow</span>
                                 {r.pickupExpiryDate && (
                                   <span className="block text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
                                     Collect Before: {fmtDate(r.pickupExpiryDate)}
@@ -978,7 +978,7 @@ export default function Books() {
                                   variant="secondary" size="xs" type="button" icon={Eye}
                                   onClick={() => navigate('/reservations')}
                                 >
-                                  View
+                                  View Details
                                 </Button>
                                 <Button
                                   variant="danger" size="xs" type="button" icon={XCircle}
@@ -986,7 +986,7 @@ export default function Books() {
                                   disabled={cancellingId === book.id}
                                   onClick={() => setCancelReserveBook(book)}
                                 >
-                                  Cancel
+                                  Cancel Reservation
                                 </Button>
                               </div>
                             </div>
@@ -1001,7 +1001,7 @@ export default function Books() {
                               </p>
                               {loan?.dueDate && (
                                 <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                                  Due Date: {fmtDate(loan.dueDate)}
+                                  Return By: {fmtDate(loan.dueDate)}
                                 </p>
                               )}
                             </div>
@@ -1011,10 +1011,10 @@ export default function Books() {
                           return (
                             <div className="flex-1 rounded-xl bg-amber-50 px-3 py-2 text-center dark:bg-amber-900/20">
                               <p className="flex items-center justify-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                                <Clock className="h-3 w-3" /> Request Pending
+                                <Clock className="h-3 w-3" /> Waiting for Approval
                               </p>
                               <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                                Awaiting admin approval
+                                The library will review your request soon
                               </p>
                             </div>
                           )
@@ -1026,7 +1026,7 @@ export default function Books() {
                               icon={ShieldCheck}
                               onClick={() => navigate('/membership')}
                             >
-                              Membership Required
+                              Choose a Membership
                             </Button>
                           )
                         }
@@ -1065,10 +1065,10 @@ export default function Books() {
                         Edit
                       </Button>
                       <Button variant="secondary" size="sm" className="flex-1" type="button" icon={BookOpen} onClick={() => handleOpenDetails(book)}>
-                        Details
+                        View Details
                       </Button>
                       <Button variant="danger" size="sm" className="flex-1" type="button" icon={Trash2} onClick={() => setDeleteTarget(book)}>
-                        Delete
+                        Remove
                       </Button>
                     </div>
                   )}
@@ -1090,14 +1090,14 @@ export default function Books() {
           <Modal
             open={modalOpen}
             onClose={() => setModalOpen(false)}
-            title={editing ? 'Edit book' : 'Add book'}
+            title={editing ? 'Edit Book' : 'Add Book'}
             footer={
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>
                   Cancel
                 </Button>
                 <Button type="button" loading={saving} onClick={saveBook}>
-                  Save
+                  Save Changes
                 </Button>
               </div>
             }
@@ -1141,7 +1141,7 @@ export default function Books() {
               />
               {!editing ? (
                 <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                  <CheckCircle className="h-4 w-4" /> All copies start available (synchronized with total)
+                  <CheckCircle className="h-4 w-4" /> All copies are available to borrow right away
                 </div>
               ) : null}
               <div className="md:col-span-2">
@@ -1181,21 +1181,21 @@ export default function Books() {
           <Modal
             open={!!deleteTarget}
             onClose={() => setDeleteTarget(null)}
-            title="Delete book?"
+            title="Remove this book?"
             size="sm"
             footer={
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button variant="secondary" type="button" onClick={() => setDeleteTarget(null)}>
-                  Cancel
+                  Keep Book
                 </Button>
                 <Button variant="danger" type="button" onClick={confirmDelete}>
-                  Delete
+                  Remove Book
                 </Button>
               </div>
             }
           >
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              This will remove <span className="font-semibold">{deleteTarget?.title}</span> from the catalog. Active loans may block deletion.
+              This will remove <span className="font-semibold">{deleteTarget?.title}</span> from your library collection.
             </p>
           </Modal>
         </>
@@ -1205,7 +1205,7 @@ export default function Books() {
         <Modal
           open={!!detailBook}
           onClose={() => { setDetailBook(null); if (paramId) navigate('/books') }}
-            title={detailBook?.title || 'Book details'}
+            title={detailBook?.title || 'About This Book'}
             size="lg"
             className="max-h-[90vh] overflow-y-auto"
           >
@@ -1314,7 +1314,7 @@ export default function Books() {
                       loading={wishlistLoadingId === detailBook.id}
                       onClick={() => { handleToggleWishlist(detailBook.id) }}
                     >
-                      {wishlistedIds.has(detailBook.id) ? 'Wishlisted' : 'Wishlist'}
+                      {wishlistedIds.has(detailBook.id) ? 'In Your Wishlist' : 'Add to Wishlist'}
                     </Button>
                     {(() => {
                       const r = reservationsMap[detailBook.id]
@@ -1349,7 +1349,7 @@ export default function Books() {
                               <BookOpen className="h-3.5 w-3.5" /> Borrowed
                             </span>
                             {loan?.dueDate && (
-                              <span className="text-xs text-gray-400">Due: {fmtDate(loan.dueDate)}</span>
+                              <span className="text-xs text-gray-400">Return By: {fmtDate(loan.dueDate)}</span>
                             )}
                           </div>
                         )
@@ -1358,14 +1358,14 @@ export default function Books() {
                         return (
                           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
                             <Clock className="h-4 w-4" />
-                            Request Pending · Awaiting admin approval
+                            Waiting for Approval
                           </div>
                         )
                       }
                       if (!activeSub) {
                         return (
                           <Button variant="secondary" type="button" icon={ShieldCheck} onClick={() => { setDetailBook(null); navigate('/membership') }}>
-                            Membership Required
+                            Choose a Membership
                           </Button>
                         )
                       }
@@ -1405,7 +1405,7 @@ export default function Books() {
           {reserveConfirmBook && (
             <Modal
               open={!!reserveConfirmBook}
-              title="Confirm Reservation"
+              title="Reserve This Book?"
               size="md"
               onClose={() => setReserveConfirmBook(null)}
               footer={
@@ -1431,7 +1431,7 @@ export default function Books() {
                       }
                     }}
                   >
-                    Confirm Reservation
+                    Reserve This Book
                   </Button>
                 </div>
               }
@@ -1447,7 +1447,7 @@ export default function Books() {
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/50">
-                      <p className="text-xs text-gray-400">Estimated Queue Position</p>
+                      <p className="text-xs text-gray-400">Your Queue Position</p>
                       <p className="font-semibold text-gray-900 dark:text-gray-50">
                         #{(queueInfoMap[reserveConfirmBook.id]?.queueLength ?? 0) + 1}
                       </p>
@@ -1461,7 +1461,7 @@ export default function Books() {
                   </div>
                   <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-500 dark:bg-gray-800/50 space-y-1">
                     <p><strong>Membership:</strong> {currentUser?.name || 'Member'}</p>
-                    <p><strong>Policy:</strong> FIFO queue. You will be notified when the book is ready for pickup. Hold time is 48 hours.</p>
+                    <p><strong>How it works:</strong> You&apos;ll join the waiting list in order. We&apos;ll notify you when the book is ready, and you&apos;ll have 48 hours to pick it up.</p>
                   </div>
                 </div>
               )}
@@ -1470,7 +1470,7 @@ export default function Books() {
           {cancelReserveBook && (
             <Modal
               open={!!cancelReserveBook}
-              title="Cancel Reservation?"
+              title="Cancel this reservation?"
               size="sm"
               onClose={() => setCancelReserveBook(null)}
               footer={
@@ -1484,7 +1484,7 @@ export default function Books() {
                     loading={cancellingId === cancelReserveBook.id}
                     onClick={() => handleCancelReservation(cancelReserveBook)}
                   >
-                    Yes, Cancel
+                    Cancel Reservation
                   </Button>
                 </div>
               }
@@ -1514,7 +1514,7 @@ export default function Books() {
             return (
             <Modal
               open={!!borrowConfirmBook}
-              title={isPickup ? 'Confirm Borrow' : 'Borrow Request'}
+              title={isPickup ? 'Confirm Borrow' : 'Request to Borrow'}
               size="md"
               onClose={() => setBorrowConfirmBook(null)}
               footer={
@@ -1538,7 +1538,7 @@ export default function Books() {
               <div className="space-y-5">
                 <section className="space-y-2">
                   <h4 className={`flex items-center gap-1.5 ${sectionTitle}`}>
-                    <BookCopy className="h-3.5 w-3.5" /> Book Information
+                    <BookCopy className="h-3.5 w-3.5" /> About This Book
                   </h4>
                   <div className="flex items-start gap-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
                     <BookCover
@@ -1607,15 +1607,15 @@ export default function Books() {
                       </div>
                     </div>
                     <p className="rounded-lg bg-primary-50 px-2 py-1.5 text-[11px] font-medium text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">
-                      Due date is auto-calculated based on your {plan?.name || 'Member'} membership ({maxLoanDays}-day loan
-                      period) and cannot be changed.
+                      Your return date is set automatically from your {plan?.name || 'Member'} membership
+                      ({maxLoanDays}-day loan period) and cannot be changed.
                     </p>
                   </section>
                 )}
 
                 <section className="space-y-2">
                   <h4 className={`flex items-center gap-1.5 ${sectionTitle}`}>
-                    <ShieldCheck className="h-3.5 w-3.5" /> Membership Information
+                    <ShieldCheck className="h-3.5 w-3.5" /> Your Membership
                   </h4>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl bg-gray-50 p-4 text-sm dark:bg-gray-800/50">
                     <div>
@@ -1623,15 +1623,15 @@ export default function Books() {
                       <dd className="mt-0.5 font-semibold text-gray-900 dark:text-gray-50">{plan?.name || '—'}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-semibold text-gray-500">Borrow Limit</dt>
+                      <dt className="text-xs font-semibold text-gray-500">Books You Can Borrow</dt>
                       <dd className="mt-0.5 font-semibold text-gray-900 dark:text-gray-50">{maxBooks || '—'} books</dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-semibold text-gray-500">Books Currently Borrowed</dt>
+                      <dt className="text-xs font-semibold text-gray-500">Books You Have Now</dt>
                       <dd className="mt-0.5 font-semibold text-gray-900 dark:text-gray-50">{borrowedCount}</dd>
                     </div>
                     <div>
-                      <dt className="text-xs font-semibold text-gray-500">Remaining Limit</dt>
+                      <dt className="text-xs font-semibold text-gray-500">Still Available to Borrow</dt>
                       <dd className="mt-0.5 font-semibold text-gray-900 dark:text-gray-50">{remaining}</dd>
                     </div>
                   </dl>
@@ -1642,8 +1642,8 @@ export default function Books() {
                     <Info className="h-3.5 w-3.5" /> Library Policy
                   </h4>
                   <ul className="space-y-1.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-                    <li className="flex items-start gap-2"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> This request requires administrator approval.</li>
-                    <li className="flex items-start gap-2"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> The book will not be issued immediately.</li>
+                    <li className="flex items-start gap-2"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> This request requires library approval.</li>
+                    <li className="flex items-start gap-2"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> You&apos;ll receive the book once your request is approved.</li>
                     <li className="flex items-start gap-2"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> The due date starts after approval.</li>
                     <li className="flex items-start gap-2"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> Late returns automatically generate fines.</li>
                   </ul>
@@ -1655,7 +1655,7 @@ export default function Books() {
           {reserveSuccess && (
             <Modal
               open={!!reserveSuccess}
-              title="Reservation Created"
+              title="Reservation Confirmed"
               size="sm"
               onClose={() => setReserveSuccess(null)}
               footer={
@@ -1670,10 +1670,10 @@ export default function Books() {
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
                   <CheckCircle className="h-6 w-6" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50">Reservation Created Successfully</h3>
-                <p className="text-sm text-gray-500">You have been added to the waiting list.</p>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50">Your book has been reserved successfully</h3>
+                <p className="text-sm text-gray-500">You&apos;ve been added to the waiting list.</p>
                 <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                  <p>Queue Position: <strong>#{reserveSuccess.queuePosition}</strong></p>
+                  <p>Your spot in line: <strong>#{reserveSuccess.queuePosition}</strong></p>
                 </div>
                 <p className="text-xs text-gray-400">You will receive a notification when the book becomes available.</p>
               </div>

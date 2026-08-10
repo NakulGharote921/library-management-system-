@@ -8,8 +8,8 @@ import { KODNEST_LOGO_URL } from '../constants/branding.js'
 import { notificationService } from '../services/api.js'
 
 const ROLE_BADGE = {
-  ADMIN: 'bg-purple-500/20 text-purple-100',
-  MEMBER: 'bg-emerald-500/20 text-emerald-100',
+  ADMIN: { cls: 'bg-purple-500/20 text-purple-100', label: 'Admin' },
+  MEMBER: { cls: 'bg-emerald-500/20 text-emerald-100', label: 'Member' },
 }
 
 const NOTIFICATION_TYPE_META = {
@@ -28,10 +28,10 @@ function timeAgo(iso) {
   if (!iso) return ''
   const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
   if (seconds < 60) return 'just now'
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
-  return new Date(iso).toLocaleDateString()
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hr ago`
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export default function Navbar() {
@@ -140,7 +140,7 @@ export default function Navbar() {
               </Link>
               <Link to="/register" className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/25 transition hover:bg-white/30">
                 <UserPlus className="h-3.5 w-3.5" />
-                Register
+                Create Account
               </Link>
             </div>
           )}
@@ -173,7 +173,7 @@ export default function Navbar() {
                   </div>
                   <div className="mt-1 max-h-72 overflow-y-auto">
                     {notifications.length === 0 && (
-                      <p className="px-4 py-6 text-center text-xs text-gray-400">No notifications yet</p>
+                      <p className="px-4 py-6 text-center text-xs text-gray-400">You&apos;re all caught up! No new notifications.</p>
                     )}
                     {notifications.map((n) => {
                       const meta = NOTIFICATION_TYPE_META[n.type] || { label: 'N', icon: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }
@@ -236,8 +236,8 @@ export default function Navbar() {
                 </div>
                 <span className="hidden text-xs font-medium sm:inline">{user.name}</span>
                 {role && (
-                  <span className={`hidden rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide sm:inline ${ROLE_BADGE[role] || 'bg-white/10 text-white'}`}>
-                    {role}
+                  <span className={`hidden rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide sm:inline ${(ROLE_BADGE[role]?.cls) || 'bg-white/10 text-white'}`}>
+                    {(ROLE_BADGE[role]?.label) || role}
                   </span>
                 )}
                 <ChevronDown className="h-3 w-3 text-white/70" />

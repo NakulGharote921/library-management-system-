@@ -51,7 +51,7 @@ export default function CashfreePaymentSuccess() {
   const goToPlans = () => navigate('/membership')
 
   const amountText = details?.amount != null
-    ? `₹${Number(details.amount).toFixed(2)}${details.currency ? ` ${details.currency}` : ''} paid successfully`
+    ? `Your payment of ₹${Number(details.amount).toFixed(2)} was successful.`
     : null
 
   return (
@@ -60,7 +60,7 @@ export default function CashfreePaymentSuccess() {
         {state === 'verifying' && (
           <>
             <RefreshCw className="mx-auto h-10 w-10 animate-spin text-primary-600 dark:text-primary-400" />
-            <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Verifying your payment</h2>
+            <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Checking your payment…</h2>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
               Please wait while we confirm your payment with Cashfree.
             </p>
@@ -82,9 +82,9 @@ export default function CashfreePaymentSuccess() {
         {state === 'pending' && (
           <>
             <RefreshCw className="mx-auto h-10 w-10 animate-spin text-primary-600 dark:text-primary-400" />
-            <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Payment Processing</h2>
+            <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Your payment is being processed.</h2>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Your payment is still being processed. Please wait while we confirm your payment.
+              Please wait while your bank confirms the payment. Your membership will activate once it's confirmed.
             </p>
             <Button className="mt-6 w-full" variant="secondary" onClick={goToPlans}>
               Back to Membership Plans
@@ -96,9 +96,9 @@ export default function CashfreePaymentSuccess() {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
               <X className="h-8 w-8 text-red-600 dark:text-red-400" />
             </div>
-            <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Payment Verification Failed</h2>
+            <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Payment Failed</h2>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              We could not verify your payment. Your membership has not been activated.
+              We couldn't complete your payment. Please try again.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <Button className="flex-1" variant="primary" onClick={verify}>

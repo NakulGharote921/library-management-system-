@@ -13,14 +13,14 @@ export default function OAuthCallback() {
   useEffect(() => {
     const error = params.get('error')
     if (error) {
-      toast.error(error === 'account_disabled' ? 'Your account has been disabled' : 'Google login failed')
+      toast.error(error === 'account_disabled' ? 'Your account has been disabled' : "We couldn't complete your Google sign-in. Please try again.")
       navigate('/login', { replace: true })
       return
     }
 
     const token = params.get('token')
     if (!token) {
-      toast.error('Google login failed: no token received')
+      toast.error("We couldn't complete your Google sign-in. Please try again.")
       navigate('/login', { replace: true })
       return
     }
@@ -35,7 +35,7 @@ export default function OAuthCallback() {
       if (result.meta.requestStatus === 'fulfilled') {
         toast.success('Signed in with Google')
       } else {
-        toast.error('Google login failed')
+        toast.error("We couldn't complete your Google sign-in. Please try again.")
       }
       navigate('/', { replace: true })
     })
@@ -46,7 +46,7 @@ export default function OAuthCallback() {
       <div className="w-full max-w-md animate-fadeIn">
         <div className="rounded-3xl bg-white p-8 text-center shadow-2xl dark:bg-gray-900">
           <img src={KODNEST_LOGO_URL} alt="KodNest" className="mx-auto h-10 w-auto" />
-          <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-50">Signing you in...</h1>
+          <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-gray-50">Signing you in…</h1>
           <p className="mt-1 text-sm text-gray-500">Completing Google sign-in</p>
           <div className="mt-6 flex justify-center">
             <span className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent" />

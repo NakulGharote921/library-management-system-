@@ -133,7 +133,7 @@ export default function PaymentReceipt({ txn, memberName, memberEmail }) {
       </div>
 
       <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Payment Information</p>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Payment Details</p>
         <dl className="mt-2.5 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
           <div className="flex items-center justify-between gap-3 py-0.5">
             <dt className="text-slate-500">Payment Status</dt>
@@ -153,19 +153,19 @@ export default function PaymentReceipt({ txn, memberName, memberEmail }) {
           </div>
           {orderId && (
             <div className="flex items-center justify-between gap-3 py-0.5">
-              <dt className="text-slate-500">Order ID</dt>
+              <dt className="text-slate-500">Payment Reference</dt>
               <dd className="font-mono text-[11px] font-medium text-slate-800">{orderId}</dd>
             </div>
           )}
           {paymentId && (
             <div className="flex items-center justify-between gap-3 py-0.5">
-              <dt className="text-slate-500">Payment ID</dt>
+              <dt className="text-slate-500">Gateway Reference</dt>
               <dd className="font-mono text-[11px] font-medium text-slate-800">{paymentId}</dd>
             </div>
           )}
           {fmtDate(txDate) && (
             <div className="flex items-center justify-between gap-3 py-0.5">
-              <dt className="text-slate-500">Transaction Date</dt>
+              <dt className="text-slate-500">Payment Date</dt>
               <dd className="font-medium text-slate-800">{fmtDate(txDate)}</dd>
             </div>
           )}
@@ -178,9 +178,9 @@ export default function PaymentReceipt({ txn, memberName, memberEmail }) {
           <dl className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
             <InfoItem label="Plan">{planName}</InfoItem>
             {validityDays != null && <InfoItem label="Validity">{validityDays} Days</InfoItem>}
-            {fmtDate(purchasedOn) && <InfoItem label="Purchased On">{fmtDate(purchasedOn)}</InfoItem>}
-            {fmtDate(expiresOn) && <InfoItem label="Expires On">{fmtDate(expiresOn)}</InfoItem>}
-            {maxBooks != null && <InfoItem label="Books Allowed">{maxBooks}</InfoItem>}
+            {fmtDate(purchasedOn) && <InfoItem label="Membership Started">{fmtDate(purchasedOn)}</InfoItem>}
+            {fmtDate(expiresOn) && <InfoItem label="Membership Ends">{fmtDate(expiresOn)}</InfoItem>}
+            {maxBooks != null && <InfoItem label="Books You Can Borrow">{maxBooks}</InfoItem>}
             {maxLoanDays != null && <InfoItem label="Loan Period">{maxLoanDays} Days</InfoItem>}
           </dl>
         </div>

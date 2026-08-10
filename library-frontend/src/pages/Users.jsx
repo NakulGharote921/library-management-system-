@@ -36,6 +36,11 @@ const STATUS_META = {
     badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
     dot: 'bg-emerald-500',
   },
+  INACTIVE: {
+    label: 'Inactive',
+    badge: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+    dot: 'bg-gray-400',
+  },
   PENDING_VERIFICATION: {
     label: 'Pending Verification',
     badge: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300',
@@ -56,6 +61,50 @@ const STATUS_META = {
     badge: 'bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
     dot: 'bg-gray-400',
   },
+}
+
+const ROLE_LABEL = {
+  ADMIN: 'Administrator',
+  MEMBER: 'Member',
+}
+
+const LOAN_STATUS_LABEL = {
+  ISSUED: 'Borrowed',
+  BORROWED: 'Borrowed',
+  RETURNED: 'Returned',
+  OVERDUE: 'Overdue',
+  LOST: 'Lost',
+  DAMAGED: 'Damaged',
+}
+
+const RESERVATION_STATUS_LABEL = {
+  WAITING: 'Waiting',
+  READY_FOR_PICKUP: 'Ready for Pickup',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  EXPIRED: 'Expired',
+}
+
+const MEMBERSHIP_STATUS_LABEL = {
+  PENDING_PAYMENT: 'Payment Pending',
+  ACTIVE: 'Active',
+  EXPIRING: 'Expiring',
+  EXPIRED: 'Expired',
+  CANCELLED: 'Cancelled',
+  REPLACED: 'Replaced',
+}
+
+const PAYMENT_STATUS_LABEL = {
+  PENDING: 'Pending',
+  SUCCESS: 'Paid',
+  FAILED: 'Payment Failed',
+  REFUNDED: 'Refunded',
+  CANCELLED: 'Cancelled',
+}
+
+const PAYMENT_TYPE_LABEL = {
+  FINE: 'Fine',
+  SUBSCRIPTION: 'Membership',
 }
 
 const PLAN_COLORS = {
@@ -159,7 +208,7 @@ function LoanStatusBadge({ status }) {
     status === 'RETURNED'
       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
       : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${meta}`}>{status}</span>
+  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${meta}`}>{LOAN_STATUS_LABEL[status] || '—'}</span>
 }
 
 function ReservationStatusBadge({ status }) {
@@ -171,7 +220,7 @@ function ReservationStatusBadge({ status }) {
     EXPIRED: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
   }
   const cls = map[status] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{status}</span>
+  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{RESERVATION_STATUS_LABEL[status] || '—'}</span>
 }
 
 export default function Users() {
@@ -305,9 +354,9 @@ export default function Users() {
 
   const validate = () => {
     const next = {}
-    if (!form.name.trim()) next.name = 'Name is required'
+    if (!form.name.trim()) next.name = 'Full name is required'
     if (!form.email.trim()) next.email = 'Email is required'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = 'Enter a valid email'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) next.email = 'Please enter a valid email address'
     if (!editing && form.password && form.password.length < 6) next.password = 'Password must be at least 6 characters'
     setErrors(next)
     return Object.keys(next).length === 0
@@ -325,10 +374,10 @@ export default function Users() {
     try {
       if (editing) {
         await userService.update(editing.id, payload)
-        toast.success('Member updated')
+        toast.success('Changes saved successfully.')
       } else {
         await userService.create({ ...payload, role: form.role, password: form.password })
-        toast.success(form.role === 'ADMIN' ? 'Admin added' : 'Member added')
+        toast.success(form.role === 'ADMIN' ? 'Administrator added successfully.' : 'Member added successfully.')
       }
       setModalOpen(false)
       load()
@@ -347,7 +396,7 @@ export default function Users() {
     setOpenMenuId(null)
     try {
       await userService.remove(id)
-      toast.success('Member removed')
+      toast.success('Member removed successfully.')
       load()
       loadOverview()
     } catch (e) {
@@ -469,8 +518,8 @@ export default function Users() {
     try {
       const rows = await fetchAllRows()
       const headers = [
-        'Membership ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Plan',
-        'Member Since', 'Last Login', 'Books Issued', 'Reservations', 'Overdue', 'Outstanding Fine',
+        'Membership No', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Plan',
+        'Member Since', 'Last Login', 'Books Borrowed', 'Reservations', 'Overdue', 'Amount Due',
       ]
       const esc = (v) => {
         const s = v == null ? '' : String(v)
@@ -812,7 +861,7 @@ export default function Users() {
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button onClick={saveUser} loading={saving}>{editing ? 'Save Changes' : 'Add User'}</Button>
+            <Button onClick={saveUser} loading={saving}>{editing ? 'Save Changes' : 'Add Member'}</Button>
           </div>
         }
       >
@@ -828,7 +877,7 @@ export default function Users() {
           {!editing && (
             <>
               <div>
-                <label htmlFor="member-role" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Role</label>
+                <label htmlFor="member-role" className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200">Account Type</label>
                 <select
                   id="member-role"
                   value={form.role}
@@ -836,7 +885,7 @@ export default function Users() {
                   className="w-full rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-gray-800 dark:bg-gray-800/60"
                 >
                   <option value="MEMBER">Member</option>
-                  <option value="ADMIN">Admin</option>
+                  <option value="ADMIN">Administrator</option>
                 </select>
               </div>
               <FormInput label="Password" id="member-password" type="password" value={form.password} error={errors.password}
@@ -886,7 +935,7 @@ export default function Users() {
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <StatusBadge status={profileData.status} />
                         <PlanBadge plan={profileData.subscriptionPlan} />
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[profileData.role] || ROLE_COLORS.MEMBER}`}>{profileData.role}</span>
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[profileData.role] || ROLE_COLORS.MEMBER}`}>{ROLE_LABEL[profileData.role] || 'Member'}</span>
                       </div>
                     </div>
                   </div>
@@ -907,11 +956,11 @@ export default function Users() {
                       </div>
                     </div>
                     <div className="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
-                      <p className="text-xs text-gray-500">Membership ID</p>
+                      <p className="text-xs text-gray-500">Membership No</p>
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{profileData.membershipId}</p>
                     </div>
                     <div className="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
-                      <p className="text-xs text-gray-500">Registered</p>
+                      <p className="text-xs text-gray-500">Joined</p>
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{fmtDateTime(profileData.createdAt)}</p>
                     </div>
                     <div className="rounded-xl border border-gray-100 p-3 dark:border-gray-800">
@@ -930,10 +979,10 @@ export default function Users() {
                       <ProfileStat label="Issued Books" value={profileData.stats?.booksIssued ?? 0} />
                       <ProfileStat label="Returned Books" value={profileData.stats?.booksReturned ?? 0} />
                       <ProfileStat label="Reservations" value={profileData.stats?.activeReservations ?? 0} />
-                      <ProfileStat label="Completed Resv." value={profileData.stats?.completedReservations ?? 0} />
+                      <ProfileStat label="Completed Reservations" value={profileData.stats?.completedReservations ?? 0} />
                       <ProfileStat label="Pending Requests" value={profileData.stats?.pendingBorrowRequests ?? 0} />
                       <ProfileStat label="Overdue Books" value={profileData.stats?.overdueBooks ?? 0} />
-                      <ProfileStat label="Total Fine" value={formatCurrency(profileData.stats?.totalFine)} />
+                      <ProfileStat label="Amount Due" value={formatCurrency(profileData.stats?.totalFine)} />
                       <ProfileStat label="Total Payments" value={formatCurrency(profileData.stats?.totalPaymentsAmount)} />
                     </div>
                   </div>
@@ -958,12 +1007,12 @@ export default function Users() {
                           : s.status === 'EXPIRING'
                             ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
                             : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                      }`}>{s.status}</span>
+                      }`}>{MEMBERSHIP_STATUS_LABEL[s.status] || '—'}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="py-6 text-center text-sm text-gray-500">No subscription history.</p>
+                <p className="py-6 text-center text-sm text-gray-500">No membership history yet.</p>
               )
             )}
 
@@ -974,8 +1023,8 @@ export default function Users() {
                     <thead>
                       <tr className="border-b border-gray-100 text-xs text-gray-500 dark:border-gray-800">
                         <th className="pb-2 pr-3 font-medium">Book</th>
-                        <th className="pb-2 pr-3 font-medium">Issued</th>
-                        <th className="pb-2 pr-3 font-medium">Due</th>
+                        <th className="pb-2 pr-3 font-medium">Borrowed On</th>
+                        <th className="pb-2 pr-3 font-medium">Return By</th>
                         <th className="pb-2 pr-3 font-medium">Returned</th>
                         <th className="pb-2 font-medium">Status</th>
                       </tr>
@@ -994,7 +1043,7 @@ export default function Users() {
                   </table>
                 </div>
               ) : (
-                <p className="py-6 text-center text-sm text-gray-500">No borrow history.</p>
+                <p className="py-6 text-center text-sm text-gray-500">No borrowed books yet.</p>
               )
             )}
 
@@ -1025,7 +1074,7 @@ export default function Users() {
                   </table>
                 </div>
               ) : (
-                <p className="py-6 text-center text-sm text-gray-500">No reservations.</p>
+                <p className="py-6 text-center text-sm text-gray-500">No reservations yet.</p>
               )
             )}
 
@@ -1045,14 +1094,14 @@ export default function Users() {
                       {tabData.payments.map((p) => (
                         <tr key={p.id} className="border-b border-gray-50 dark:border-gray-800/50">
                           <td className="py-2.5 pr-3 text-gray-600 dark:text-gray-300">{fmtDateTime(p.completedAt || p.createdAt)}</td>
-                          <td className="py-2.5 pr-3 font-medium text-gray-800 dark:text-gray-200">{p.paymentType}</td>
+                          <td className="py-2.5 pr-3 font-medium text-gray-800 dark:text-gray-200">{PAYMENT_TYPE_LABEL[p.paymentType] || 'Payment'}</td>
                           <td className="py-2.5 pr-3 text-gray-800 dark:text-gray-200">{formatCurrency(p.amount)}</td>
                           <td className="py-2.5">
                             <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                               p.status === 'SUCCESS'
                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
                                 : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                            }`}>{p.status}</span>
+                            }`}>{PAYMENT_STATUS_LABEL[p.status] || 'Unpaid'}</span>
                           </td>
                         </tr>
                       ))}
@@ -1060,7 +1109,7 @@ export default function Users() {
                   </table>
                 </div>
               ) : (
-                <p className="py-6 text-center text-sm text-gray-500">No payments.</p>
+                <p className="py-6 text-center text-sm text-gray-500">No payments yet.</p>
               )
             )}
 
@@ -1073,7 +1122,7 @@ export default function Users() {
                     <ProfileStat label="Currently Borrowed" value={tabData.reading.stats.currentlyBorrowed ?? 0} />
                     <ProfileStat label="Returned" value={tabData.reading.stats.returnedBooks ?? 0} />
                     <ProfileStat label="Overdue Returns" value={tabData.reading.stats.overdueReturns ?? 0} />
-                    <ProfileStat label="Avg Rating" value={tabData.reading.stats.averageRating ?? '—'} />
+                    <ProfileStat label="Average Rating" value={tabData.reading.stats.averageRating ?? '—'} />
                     <ProfileStat label="Favorite Genre" value={tabData.reading.stats.favoriteGenre ?? '—'} />
                     <ProfileStat label="Fine Paid" value={formatCurrency(tabData.reading.stats.totalFinePaid)} />
                   </div>
@@ -1104,7 +1153,7 @@ export default function Users() {
                     </table>
                   </div>
                 ) : (
-                  <p className="py-4 text-center text-sm text-gray-500">No reading history.</p>
+                  <p className="py-4 text-center text-sm text-gray-500">No reading history yet.</p>
                 )}
               </div>
             )}
@@ -1124,7 +1173,7 @@ export default function Users() {
                   ))}
                 </ul>
               ) : (
-                <p className="py-6 text-center text-sm text-gray-500">No notifications.</p>
+                <p className="py-6 text-center text-sm text-gray-500">No notifications yet.</p>
               )
             )}
           </div>
@@ -1167,7 +1216,7 @@ export default function Users() {
         }
       >
         <p className="text-sm text-gray-600 dark:text-gray-300">
-          Are you sure you want to delete <span className="font-semibold">{deleteTarget?.name}</span>? Their record will be hidden and they will no longer be able to sign in. Active loans may prevent deletion.
+          Are you sure you want to delete <span className="font-semibold">{deleteTarget?.name}</span>? Their profile will be hidden and they will no longer be able to sign in. Active loans may prevent deletion.
         </p>
       </Modal>
     </div>

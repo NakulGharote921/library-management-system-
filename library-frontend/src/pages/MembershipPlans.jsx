@@ -16,6 +16,11 @@ function PlanCheckItem({ text, included }) {
   )
 }
 
+const STATUS_LABEL = {
+  ACTIVE: 'Active',
+  INACTIVE: 'Inactive',
+}
+
 export default function MembershipPlans() {
   const navigate = useNavigate()
   const [plans, setPlans] = useState([])
@@ -84,7 +89,7 @@ export default function MembershipPlans() {
         order = await paymentService.createSubscriptionOrder(sub.id)
       } catch (err) {
         console.debug('Order creation failed for subscription', sub.id, err)
-        showErrorOnce('Unable to create payment order. Please try again.')
+        showErrorOnce("We couldn't complete your payment. Please try again.")
         finish()
         load()
         return
@@ -92,7 +97,7 @@ export default function MembershipPlans() {
       console.debug('Cashfree order created for subscription', sub.id, { orderId: order.orderId, amount: order.amount, currency: order.currency })
 
       if (!order.amount || Number(order.amount) <= 0) {
-        toast.success(`${sub.plan?.name || 'Plan'} activated! You can now borrow books.`)
+        toast.success('Payment successful! Your membership is now active.')
         finish()
         load()
         return
@@ -100,7 +105,7 @@ export default function MembershipPlans() {
 
       if (!order.paymentSessionId) {
         console.warn('Cashfree order missing paymentSessionId', order)
-        showErrorOnce('Unable to start payment. Please try again.')
+        showErrorOnce("We couldn't complete your payment. Please try again.")
         finish()
         load()
         return
@@ -111,7 +116,7 @@ export default function MembershipPlans() {
         cashfree = window.Cashfree({ mode: import.meta.env.VITE_CASHFREE_MODE || 'sandbox' })
       } catch (err) {
         console.debug('Cashfree SDK could not be initialized', err)
-        showErrorOnce('Payment could not be started. Please try again.')
+        showErrorOnce("We couldn't complete your payment. Please try again.")
         finish()
         load()
         return
@@ -142,7 +147,7 @@ export default function MembershipPlans() {
           if (settledRef.current) return
           settledRef.current = true
           console.debug('Cashfree payment failed for subscription', sub.id, data)
-          showErrorOnce('Payment failed. Please try again.')
+          showErrorOnce("We couldn't complete your payment. Please try again.")
           finish()
           load()
         },
@@ -162,7 +167,7 @@ export default function MembershipPlans() {
 
   const handleVerifyResult = useCallback((res, planName) => {
     if (res?.success && res?.paymentStatus === 'SUCCESS') {
-      toast.success(`${planName || 'Plan'} activated! You can now borrow books.`)
+      toast.success('Payment successful! Your membership is now active.')
       const orderId = lastVerifyRef.current?.orderId
       if (orderId) {
         window.location.href = `/payment/cashfree/success?order_id=${encodeURIComponent(orderId)}`
@@ -216,7 +221,7 @@ export default function MembershipPlans() {
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">Membership Plans</h1>
-          <p className="text-sm text-gray-500">Choose a plan that suits your reading needs</p>
+          <p className="text-sm text-gray-500">Find the plan that works best for you.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" type="button" icon={RefreshCw} onClick={load}>
@@ -260,7 +265,7 @@ export default function MembershipPlans() {
       {plans.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-20 dark:border-gray-800 dark:bg-gray-900">
           <Award className="h-12 w-12 text-gray-300" />
-          <p className="mt-4 text-lg font-semibold text-gray-600 dark:text-gray-400">No plans available</p>
+          <p className="mt-4 text-lg font-semibold text-gray-600 dark:text-gray-400">No membership plans available yet.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -302,7 +307,7 @@ export default function MembershipPlans() {
                         ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-700 dark:text-emerald-100'
                         : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                     }`}>
-                      {status}
+                      {STATUS_LABEL[status] || 'Active'}
                     </span>
                   </div>
 
@@ -343,11 +348,11 @@ export default function MembershipPlans() {
                       </Button>
                     ) : isFree ? (
                       <Button className="w-full" variant="secondary" onClick={() => handlePurchase(plan.id)} disabled={purchasing !== null} loading={purchasing === plan.id}>
-                        Subscribe
+                        Get Started
                       </Button>
                     ) : (
                       <Button className="w-full" variant="primary" onClick={() => handlePurchase(plan.id)} disabled={purchasing !== null} loading={purchasing === plan.id}>
-                        Subscribe
+                        Continue to Payment
                       </Button>
                     )}
                   </div>
@@ -414,7 +419,7 @@ export default function MembershipPlans() {
             {paymentResult.state === 'pending' && (
               <>
                 <RefreshCw className="mx-auto h-10 w-10 animate-spin text-primary-600 dark:text-primary-400" />
-                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Payment is being processed</h2>
+                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Your payment is being processed</h2>
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                   Your membership will be activated once the payment is confirmed by the bank.
                 </p>
@@ -428,7 +433,7 @@ export default function MembershipPlans() {
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
                   <X className="h-8 w-8 text-red-600 dark:text-red-400" />
                 </div>
-                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">Payment verification failed</h2>
+                <h2 className="mt-4 text-xl font-bold text-gray-900 dark:text-gray-50">We couldn't confirm your payment</h2>
                 <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                   Your membership has not been activated. No amount will be charged unless the payment is confirmed.
                 </p>

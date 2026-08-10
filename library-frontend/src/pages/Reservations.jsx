@@ -27,6 +27,15 @@ const STATUS_LABEL = {
   EXPIRED: 'Expired',
 }
 
+const TAB_LABEL = {
+  all: 'All',
+  waiting: 'Waiting',
+  ready: 'Ready for Pickup',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  expired: 'Expired',
+}
+
 const STATUS_COLORS = {
   WAITING: 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950 dark:text-amber-300',
   READY_FOR_PICKUP: 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-950 dark:text-blue-300',
@@ -83,6 +92,8 @@ export default function Reservations() {
   const navigate = useNavigate()
   const role = useSelector(selectUserRole)
   const isAdmin = role === 'ADMIN'
+  const statusLabel = (status) =>
+    status === 'READY_FOR_PICKUP' && !isAdmin ? 'Ready to Borrow' : STATUS_LABEL[status] || status
   const [reservations, setReservations] = useState([])
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -311,7 +322,7 @@ export default function Reservations() {
           break
         case 'reserveAgain':
           await reserveBook(detail?.bookId)
-          toast.success('Reservation created — check your queue position')
+          toast.success('Your book has been reserved successfully.')
           break
         default:
           break
@@ -330,11 +341,11 @@ export default function Reservations() {
 
   const confirmLabels = {
     approve: { title: 'Approve Reservation', body: 'Approve this reservation and mark the book as ready for pickup?' },
-    cancel: { title: 'Cancel Reservation', body: 'Cancelling will remove you from the waiting queue. This cannot be undone.' },
+    cancel: { title: 'Cancel this reservation?', body: 'Cancelling will remove you from the waiting queue. This cannot be undone.' },
     adminCancel: { title: 'Cancel Reservation', body: 'Cancel this reservation for the user? The next person in the queue will be notified.' },
     pickup: { title: 'Confirm Pickup', body: 'Confirm that the book has been picked up and issue it to the member?' },
     expire: { title: 'Expire Reservation', body: 'Expire this reservation now? The next person in the queue will be notified.' },
-    delete: { title: 'Delete Reservation', body: 'Permanently delete this record? This cannot be undone.' },
+    delete: { title: 'Delete Reservation', body: 'Permanently delete this reservation? This cannot be undone.' },
     borrow: { title: 'Borrow Now', body: 'Borrow this reserved book now? The reservation will be completed and a loan created.' },
     reserveAgain: { title: 'Reserve Again', body: 'Create a new reservation for this book?' },
   }
@@ -342,7 +353,7 @@ export default function Reservations() {
   const statCards = [
     { label: 'Total Reservations', value: stats?.total || 0, icon: BookOpen, color: 'bg-primary-50 text-primary-600 dark:bg-primary-950 dark:text-primary-300' },
     { label: 'Waiting', value: stats?.waiting || 0, icon: Clock, color: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300' },
-    { label: 'Ready for Pickup', value: stats?.readyForPickup || 0, icon: AlertTriangle, color: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300' },
+    { label: isAdmin ? 'Ready for Pickup' : 'Ready to Borrow', value: stats?.readyForPickup || 0, icon: AlertTriangle, color: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300' },
     { label: 'Completed', value: stats?.completed || 0, icon: CheckCircle, color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300' },
     { label: 'Cancelled', value: stats?.cancelled || 0, icon: XCircle, color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400' },
     { label: 'Expired', value: stats?.expired || 0, icon: Ban, color: 'bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-300' },
@@ -468,7 +479,7 @@ export default function Reservations() {
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-gray-400">No data yet</p>
+                <p className="mt-2 text-xs text-gray-400">Nothing to show here yet.</p>
               )}
             </div>
           </div>
@@ -489,7 +500,7 @@ export default function Reservations() {
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-gray-400">No data yet</p>
+                <p className="mt-2 text-xs text-gray-400">Nothing to show here yet.</p>
               )}
             </div>
             <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
@@ -503,7 +514,7 @@ export default function Reservations() {
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-gray-400">No data yet</p>
+                <p className="mt-2 text-xs text-gray-400">Nothing to show here yet.</p>
               )}
             </div>
             <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
@@ -521,7 +532,7 @@ export default function Reservations() {
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-gray-400">No data yet</p>
+                <p className="mt-2 text-xs text-gray-400">Nothing to show here yet.</p>
               )}
             </div>
           </div>
@@ -551,7 +562,7 @@ export default function Reservations() {
               tab === t ? 'bg-primary-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800'
             }`}
           >
-            {t === 'ready' ? 'Ready for Pickup' : t === 'all' ? 'All' : t}
+            {t === 'ready' && !isAdmin ? 'Ready to Borrow' : TAB_LABEL[t] || t}
           </button>
         ))}
       </div>
@@ -560,10 +571,12 @@ export default function Reservations() {
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center dark:border-gray-800 dark:bg-gray-900">
           <BookOpen className="h-10 w-10 text-gray-400" />
           <p className="mt-3 text-lg font-semibold text-gray-800 dark:text-gray-100">
-            {tab === 'all' ? 'No Reservations Yet' : `No ${tab} reservations`}
+            {tab === 'all'
+              ? (isAdmin ? 'No reservations yet.' : "You don't have any reservations yet.")
+              : 'No reservations match this status.'}
           </p>
           <p className="mt-1 text-sm text-gray-500 max-w-sm">
-            {tab === 'all' ? 'Reserve books that are currently unavailable and track your queue position here.' : 'No reservations match this status.'}
+            {tab === 'all' ? 'Reserve books that are currently unavailable and track your queue position here.' : 'Try a different status or clear your search filters.'}
           </p>
           <Button className="mt-5" icon={BookOpen} onClick={() => navigate('/books')}>
             Browse Books
@@ -664,7 +677,7 @@ export default function Reservations() {
                     <StatusIcon className={`h-4 w-4 ${badge.text}`} />
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${badge.bg} ${badge.text}`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
-                      {STATUS_LABEL[res.status] || res.status}
+                      {statusLabel(res.status)}
                     </span>
                   </div>
                   <span className="inline-flex items-center justify-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
@@ -940,7 +953,7 @@ export default function Reservations() {
               {(() => { const SI = STATUS_ICONS[detailReservation.status] || Clock; return (
               <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ring-1 ring-inset ${STATUS_COLORS[detailReservation.status] || STATUS_COLORS.WAITING}`}>
                 <SI className="h-4 w-4" />
-                {STATUS_LABEL[detailReservation.status] || detailReservation.status}
+                {statusLabel(detailReservation.status)}
               </span>
               )})()}
               <span className="text-sm text-gray-400">Queue #{detailReservation.queuePosition}</span>
@@ -1079,7 +1092,7 @@ export default function Reservations() {
           confirmState && (
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" type="button" onClick={() => setConfirmState(null)}>
-                No, Go Back
+                {confirmState.action === 'cancel' ? 'Keep Reservation' : 'No, Go Back'}
               </Button>
               <Button
                 variant={confirmState.action === 'approve' || confirmState.action === 'pickup' || confirmState.action === 'borrow' || confirmState.action === 'reserveAgain' ? 'primary' : 'danger'}
@@ -1092,7 +1105,7 @@ export default function Reservations() {
                   handleAction(action, id, detail)
                 }}
               >
-                Yes, {confirmState.action === 'pickup' ? 'Confirm Pickup' : confirmState.action === 'borrow' ? 'Borrow Now' : confirmState.action === 'reserveAgain' ? 'Reserve Again' : 'Confirm'}
+                {confirmState.action === 'cancel' ? 'Cancel Reservation' : `Yes, ${confirmState.action === 'pickup' ? 'Confirm Pickup' : confirmState.action === 'borrow' ? 'Borrow Now' : confirmState.action === 'reserveAgain' ? 'Reserve Again' : 'Confirm'}`}
               </Button>
             </div>
           )

@@ -23,7 +23,7 @@ const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 
 const STATUS_META = {
   BORROWED: {
-    label: 'Currently Borrowed',
+    label: 'Borrowing',
     icon: Clock,
     badge: 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-950 dark:text-blue-300',
     dot: 'bg-blue-500',
@@ -52,6 +52,20 @@ const STATUS_META = {
     badge: 'bg-orange-50 text-orange-700 ring-orange-500/30 dark:bg-orange-950 dark:text-orange-300',
     dot: 'bg-orange-500',
   },
+}
+
+const RESERVATION_STATUS_LABEL = {
+  ACTIVE: 'Active',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  CANCELED: 'Cancelled',
+  READY_FOR_PICKUP: 'Ready to Borrow',
+  WAITING: 'Waiting',
+}
+
+const FINE_STATUS_LABEL = {
+  PAID: 'Paid',
+  UNPAID: 'Unpaid',
 }
 
 const SORT_OPTIONS = [
@@ -332,7 +346,7 @@ function HistoryCard({ entry, actionId, onDetails, onBorrowAgain, onWishlist, on
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 text-sm text-gray-700 dark:text-gray-300">{entry.review}</p>
                 {entry.reviewSubmittedAt && (
-                  <p className="mt-1 text-xs text-gray-400">{new Date(entry.reviewSubmittedAt).toLocaleDateString()}</p>
+                  <p className="mt-1 text-xs text-gray-400">{fmtDate(entry.reviewSubmittedAt)}</p>
                 )}
               </div>
             </div>
@@ -627,7 +641,7 @@ export default function ReadingHistory() {
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
-    toast.success(`${rows.length} records exported`)
+    toast.success(`${rows.length} entries exported`)
   }
 
   const statCards = [
@@ -777,7 +791,7 @@ export default function ReadingHistory() {
         ) : error && history.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 py-20 text-center dark:border-rose-900 dark:bg-rose-950/30">
             <AlertTriangle className="h-14 w-14 text-rose-400" />
-            <h3 className="mt-4 text-lg font-semibold text-rose-700 dark:text-rose-300">Failed to load reading history</h3>
+            <h3 className="mt-4 text-lg font-semibold text-rose-700 dark:text-rose-300">We couldn't load your reading history</h3>
             <p className="mt-1 text-sm text-rose-500">{getApiErrorMessage(error)}</p>
             <Button className="mt-5" icon={RefreshCw} onClick={load}>Try Again</Button>
           </div>
@@ -787,7 +801,7 @@ export default function ReadingHistory() {
               <BookOpen className="h-8 w-8 text-primary-600 dark:text-primary-300" />
             </div>
             <h3 className="mt-5 text-lg font-semibold text-gray-900 dark:text-gray-50">No Reading History Yet</h3>
-            <p className="mt-1 max-w-sm text-sm text-gray-500">You haven't borrowed any books yet. Start exploring the library and borrow your first book.</p>
+            <p className="mt-1 max-w-sm text-sm text-gray-500">Your reading history will appear here once you start borrowing books.</p>
             <Button className="mt-6" onClick={() => navigate('/books')}>Browse Books</Button>
           </div>
         ) : filtered.length === 0 ? (
@@ -795,7 +809,7 @@ export default function ReadingHistory() {
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
               <Search className="h-8 w-8 text-gray-400" />
             </div>
-            <h3 className="mt-5 text-lg font-semibold text-gray-900 dark:text-gray-50">No records match your filters</h3>
+            <h3 className="mt-5 text-lg font-semibold text-gray-900 dark:text-gray-50">No books match your filters. Try different filters.</h3>
             <p className="mt-1 max-w-sm text-sm text-gray-500">Try adjusting your search, filters, or date ranges.</p>
             <Button className="mt-6" variant="secondary" icon={FilterX} onClick={clearFilters}>Clear Filters</Button>
           </div>
@@ -803,7 +817,7 @@ export default function ReadingHistory() {
           <>
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <p className="text-sm text-gray-500">
-                Showing <span className="font-semibold text-gray-800 dark:text-gray-200">{filtered.length ? (currentPage - 1) * pageSize + 1 : 0}–{Math.min(currentPage * pageSize, filtered.length)}</span> of <span className="font-semibold text-gray-800 dark:text-gray-200">{filtered.length}</span> records
+                Showing <span className="font-semibold text-gray-800 dark:text-gray-200">{filtered.length ? (currentPage - 1) * pageSize + 1 : 0}–{Math.min(currentPage * pageSize, filtered.length)}</span> of <span className="font-semibold text-gray-800 dark:text-gray-200">{filtered.length}</span> books
               </p>
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <span>Rows per page</span>
@@ -917,11 +931,11 @@ export default function ReadingHistory() {
             </tbody>
           </table>
         ) : (
-          <p>No reading history records.</p>
+          <p>Your reading history is empty.</p>
         )}
       </div>
 
-      <Modal open={!!details} title={details?.bookTitle || 'Book Details'} onClose={() => setDetails(null)} size="lg">
+      <Modal open={!!details} title={details?.bookTitle || 'About This Book'} onClose={() => setDetails(null)} size="lg">
         {details && (
           <div className="space-y-5">
             <div className="flex flex-col gap-4 sm:flex-row">
@@ -976,7 +990,7 @@ export default function ReadingHistory() {
                     ['Borrow Duration', details.daysBorrowed != null ? `${details.daysBorrowed} days` : '—'],
                     ['Membership Used', details.membershipPlanName || '—'],
                     ['Fine Amount', details.fineAmount ? fmtMoney(details.fineAmount) : '—'],
-                    ['Fine Status', details.fineStatus || '—'],
+                    ['Fine Status', FINE_STATUS_LABEL[details.fineStatus] || details.fineStatus || '—'],
                     ['Rating', details.rating ? `${details.rating} / 5` : 'Not rated'],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-800/50">
@@ -990,7 +1004,7 @@ export default function ReadingHistory() {
                     <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Your Review</h4>
                     <p className="mt-1.5 text-sm leading-relaxed text-gray-600 dark:text-gray-300">{details.review}</p>
                     {details.reviewSubmittedAt && (
-                      <p className="mt-1 text-xs text-gray-400">{new Date(details.reviewSubmittedAt).toLocaleDateString()}</p>
+                      <p className="mt-1 text-xs text-gray-400">{fmtDate(details.reviewSubmittedAt)}</p>
                     )}
                   </div>
                 )}
@@ -1003,16 +1017,16 @@ export default function ReadingHistory() {
                           <li key={res.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm">
                             <div>
                               <p className="font-medium text-gray-800 dark:text-gray-200">{res.reservationNumber}</p>
-                              <p className="text-xs text-gray-500">Reserved {new Date(res.reservationDate).toLocaleDateString()}</p>
+                              <p className="text-xs text-gray-500">Reserved {fmtDate(res.reservationDate)}</p>
                             </div>
                             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${res.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : res.status === 'COMPLETED' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
-                              {res.status}
+                              {RESERVATION_STATUS_LABEL[res.status] || res.status}
                             </span>
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1.5 text-sm text-gray-500">No reservation records for this book.</p>
+                      <p className="mt-1.5 text-sm text-gray-500">No reservations for this book yet.</p>
                     )}
                   </div>
                 )}

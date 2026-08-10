@@ -28,22 +28,22 @@ import { selectUi, setSidebarOpen, setSidebarCollapsed } from '../store/uiSlice.
 
 const GUEST_ITEMS = [
   { to: '/home', label: 'Home', icon: LayoutDashboard },
-  { to: '/books', label: 'Books', icon: Library },
+  { to: '/books', label: 'Browse Books', icon: Library },
   { to: '/categories', label: 'Categories', icon: FolderTree },
   { to: '/about', label: 'About Library', icon: BookOpen },
   { to: '/login', label: 'Login', icon: User },
-  { to: '/register', label: 'Register', icon: UserCog },
+  { to: '/register', label: 'Create Account', icon: UserCog },
 ]
 
 const MEMBER_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: '/dashboard.png' },
-  { to: '/books', label: 'Books', icon: Library },
-  { to: '/history', label: 'Issued Books', icon: '/book.png' },
+  { to: '/', label: 'Home', icon: '/dashboard.png' },
+  { to: '/books', label: 'Browse Books', icon: Library },
+  { to: '/history', label: 'My Books', icon: '/book.png' },
   { to: '/borrow-requests', label: 'Borrow Requests', icon: ClipboardList },
   { to: '/reservations', label: 'Reservations', icon: CalendarRange },
   { to: '/reading-history', label: 'Reading History', icon: BookmarkCheck },
   { to: '/wishlist', label: 'Wishlist', icon: Heart },
-  { to: '/membership', label: 'Membership Plans', icon: Crown },
+  { to: '/membership', label: 'Membership', icon: Crown },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/profile', label: 'Profile', icon: User },
 ]
@@ -59,15 +59,15 @@ const ADMIN_PEOPLE = [
 ]
 
 const ADMIN_MID = [
-  { to: '/issue', label: 'Issue Book', icon: BookOpen },
+  { to: '/issue', label: 'Borrow Book', icon: BookOpen },
   { to: '/borrow-requests', label: 'Borrow Requests', icon: ClipboardList },
   { to: '/reservations', label: 'Reservations', icon: CalendarRange },
-  { to: '/history', label: 'History', icon: '/book.png' },
-  { to: '/subscriptions', label: 'Subscriptions', icon: Award },
+  { to: '/history', label: 'Borrowed Books', icon: '/book.png' },
+  { to: '/subscriptions', label: 'Membership Plans', icon: Award },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/report', label: 'Reports', icon: BarChart3 },
   { to: '/analytics', label: 'Analytics', icon: TrendingUp },
-  { to: '/audit-logs', label: 'Audit Logs', icon: ShieldAlert },
+  { to: '/audit-logs', label: 'Activity Log', icon: ShieldAlert },
 ]
 
 const ADMIN_ITEMS_BOTTOM = [

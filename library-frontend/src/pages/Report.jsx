@@ -41,7 +41,7 @@ export default function Report() {
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
-      toast.success(`${type} exported`)
+      toast.success(`${type} report downloaded.`)
     } catch (e) {
       toast.error(getApiErrorMessage(e))
     }
@@ -56,7 +56,7 @@ export default function Report() {
   )
 
   const exportUsers = () => exportCsv(
-    'Users',
+    'Members',
     () => userService.getAll(),
     ['id', 'name', 'email', 'phone', 'enrollmentDate'],
     (s) => [s.id, `"${(s.name || '').replace(/"/g, '""')}"`, s.email, s.phone || '', s.enrollmentDate || ''],
@@ -64,7 +64,7 @@ export default function Report() {
   )
 
   const exportCirculation = () => exportCsv(
-    'Circulation',
+    'Borrowing history',
     () => issuedBookService.getAll(),
     ['id', 'user', 'email', 'book', 'author', 'issueDate', 'dueDate', 'returnDate', 'status'],
     (r) => [
@@ -106,15 +106,15 @@ export default function Report() {
           </p>
           <h1 className="mt-4 text-3xl font-bold tracking-tight lg:text-4xl">Library Reports</h1>
           <p className="mt-2 max-w-xl text-sm text-white/85">
-            Key metrics and statistics about library operations, circulation, and student engagement.
+            Key metrics and statistics about library operations, circulation, and member engagement.
           </p>
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard title="Total books" value={stats?.totalBooks ?? 0} icon={Library} color="blue" trend="+ catalog growth" />
-        <StatsCard title="Students" value={stats?.totalStudents ?? 0} icon={Users} color="violet" trend="Active profiles" />
-        <StatsCard title="Books issued" value={stats?.activeIssues ?? 0} icon={BookMarked} color="amber" trend="Currently on loan" />
+        <StatsCard title="Total books" value={stats?.totalBooks ?? 0} icon={Library} color="blue" trend="Catalog growth" />
+        <StatsCard title="Members" value={stats?.totalStudents ?? 0} icon={Users} color="violet" trend="Active profiles" />
+        <StatsCard title="Books borrowed" value={stats?.activeIssues ?? 0} icon={BookMarked} color="amber" trend="Currently on loan" />
         <StatsCard title="Available copies" value={stats?.availableBooks ?? 0} icon={TrendingUp} color="green" trend="On shelves" />
       </section>
 
@@ -150,7 +150,7 @@ export default function Report() {
             >
               <span className="inline-flex items-center gap-2">
                 <Download className="h-4 w-4 text-primary-600" />
-                Circulation History Report
+                Borrowing History Report
               </span>
             </button>
           </div>

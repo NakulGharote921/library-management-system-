@@ -397,7 +397,7 @@ function CirculationCard({ data }) {
           <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-50">About this chart</h3>
           <p className="mb-4">Breakdown of the library catalog: copies available on shelves, currently on loan, and overdue. Toggle the filters to show or hide each segment.</p>
           <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-50">Definition</h3>
-          <p className="mb-4">Available copies are on the shelves, on-loan copies are issued to members, and overdue copies are on-loan copies past their due date.</p>
+          <p className="mb-4">Available copies are on the shelves, on-loan copies are borrowed by members, and overdue copies are borrowed copies past their return date.</p>
           <Link to="/report" onClick={() => setInfoOpen(false)} className="inline-flex items-center font-medium text-primary-600 hover:underline dark:text-primary-400">
             Read more
             <ArrowRight className="ms-1 h-4 w-4" />
